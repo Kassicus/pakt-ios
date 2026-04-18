@@ -1,18 +1,3 @@
-//
-//  Item.swift
-//  Pakt
-//
-//  Created by Kason Suchow on 4/17/26.
-//
-
-import Foundation
-import SwiftData
-
-@Model
-final class Item {
-    var timestamp: Date
-    
-    init(timestamp: Date) {
-        self.timestamp = timestamp
-    }
-}
+//  Deprecated SwiftData template model — replaced by PaktCore.Item DTO.
+//  Left as an empty stub so the Xcode target reference stays resolved.
+//  Remove this file from the target when convenient.
