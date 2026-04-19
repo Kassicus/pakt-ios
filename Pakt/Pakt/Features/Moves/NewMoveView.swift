@@ -1,4 +1,3 @@
-import PaktCore
 import SwiftData
 import SwiftUI
 

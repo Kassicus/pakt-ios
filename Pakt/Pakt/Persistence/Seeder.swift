@@ -1,5 +1,4 @@
 import Foundation
-import PaktCore
 import SwiftData
 
 /// Populates a freshly-created Move with the same defaults the web app seeds:

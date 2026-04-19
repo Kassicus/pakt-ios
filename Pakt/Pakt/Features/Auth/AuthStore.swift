@@ -9,7 +9,7 @@ public final class AuthStore {
     public enum State: Equatable {
         case loading
         case signedOut
-        case signedIn(appleUserId: String)
+        case signedIn(appleUserId: String, email: String? = nil)
     }
 
     public private(set) var state: State = .loading
@@ -31,7 +31,7 @@ public final class AuthStore {
                 .credentialState(forUserID: userId)
             switch credentialState {
             case .authorized:
-                state = .signedIn(appleUserId: userId)
+                state = .signedIn(appleUserId: userId, email: nil)
             case .revoked, .notFound, .transferred:
                 Keychain.setString(nil, for: Self.kAppleUserId)
                 state = .signedOut
@@ -39,7 +39,7 @@ public final class AuthStore {
                 state = .signedOut
             }
         } catch {
-            state = .signedIn(appleUserId: userId)
+            state = .signedIn(appleUserId: userId, email: nil)
         }
     }
 
@@ -57,7 +57,7 @@ public final class AuthStore {
         let name = credential.fullName.flatMap { Self.format($0) }
         Keychain.setString(userId, for: Self.kAppleUserId)
         upsertUser(appleUserId: userId, name: name, email: email, context: context)
-        state = .signedIn(appleUserId: userId)
+        state = .signedIn(appleUserId: userId, email: email)
         lastError = nil
     }
 

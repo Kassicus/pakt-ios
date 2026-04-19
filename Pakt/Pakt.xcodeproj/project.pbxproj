@@ -6,10 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		9A1A001F2F93500A00000001 /* PaktCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9A1A001E2F93500A00000001 /* PaktCore */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXContainerItemProxy section */
 		955E61E12F9331A6006DBB91 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -33,22 +29,9 @@
 		955E61EA2F9331A6006DBB91 /* PaktUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PaktUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		959D2C942F933DB0005CA6C7 /* Exceptions for "Pakt" folder in "Pakt" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 955E61D02F9331A5006DBB91 /* Pakt */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		955E61D32F9331A5006DBB91 /* Pakt */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				959D2C942F933DB0005CA6C7 /* Exceptions for "Pakt" folder in "Pakt" target */,
-			);
 			path = Pakt;
 			sourceTree = "<group>";
 		};
@@ -69,7 +52,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9A1A001F2F93500A00000001 /* PaktCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -130,7 +112,6 @@
 			);
 			name = Pakt;
 			packageProductDependencies = (
-				9A1A001E2F93500A00000001 /* PaktCore */,
 			);
 			productName = Pakt;
 			productReference = 955E61D12F9331A5006DBB91 /* Pakt.app */;
@@ -215,7 +196,6 @@
 			mainGroup = 955E61C82F9331A5006DBB91;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				955E621C2F9338CD006DBB91 /* XCLocalSwiftPackageReference "../Packages/PaktCore" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 955E61D22F9331A5006DBB91 /* Products */;
@@ -421,9 +401,10 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Pakt/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Pakt;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Take photos of items you're packing.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Attach photos to inventory items.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -450,12 +431,14 @@
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				XROS_DEPLOYMENT_TARGET = 26.4;
 			};
 			name = Debug;
@@ -474,9 +457,10 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Pakt/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Pakt;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Take photos of items you're packing.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Attach photos to inventory items.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -503,12 +487,14 @@
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				XROS_DEPLOYMENT_TARGET = 26.4;
 			};
 			name = Release;
@@ -655,20 +641,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		9A1A001E2F93500A00000001 /* PaktCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = PaktCore;
-		};
-/* End XCSwiftPackageProductDependency section */
-
-/* Begin XCLocalSwiftPackageReference section */
-		955E621C2F9338CD006DBB91 /* XCLocalSwiftPackageReference "../Packages/PaktCore" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../Packages/PaktCore;
-		};
-/* End XCLocalSwiftPackageReference section */
 	};
 	rootObject = 955E61C92F9331A5006DBB91 /* Project object */;
 }

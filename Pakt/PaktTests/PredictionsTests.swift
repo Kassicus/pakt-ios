@@ -1,5 +1,5 @@
 import XCTest
-@testable import PaktCore
+@testable import Pakt
 
 final class PredictionsTests: XCTestCase {
     func testEmpty() {

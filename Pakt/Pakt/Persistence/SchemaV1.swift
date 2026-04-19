@@ -1,5 +1,4 @@
 import Foundation
-import PaktCore
 import SwiftData
 
 // SwiftData + CloudKit requires:

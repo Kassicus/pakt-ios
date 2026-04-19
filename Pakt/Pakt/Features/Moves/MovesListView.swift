@@ -1,4 +1,3 @@
-import PaktCore
 import SwiftData
 import SwiftUI
 
@@ -8,6 +7,7 @@ struct MovesListView: View {
     @Query(sort: \Move.updatedAt, order: .reverse) private var moves: [Move]
 
     @State private var showingNewMove = false
+    @State private var showingSettings = false
 
     var body: some View {
         NavigationStack {
@@ -15,17 +15,15 @@ struct MovesListView: View {
                 .navigationTitle("Moves")
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        Menu {
-                            Button(role: .destructive, action: auth.signOut) {
-                                Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
-                            }
-                        } label: {
-                            Image(paktIcon: "user")
+                        Button { showingSettings = true } label: {
+                            Image(systemName: "gearshape")
+                                .accessibilityLabel("Settings")
                         }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { showingNewMove = true } label: {
                             Image(paktIcon: "plus")
+                                .accessibilityLabel("New move")
                         }
                     }
                 }
@@ -34,7 +32,12 @@ struct MovesListView: View {
         .sheet(isPresented: $showingNewMove) {
             NewMoveView().environment(auth)
         }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView().environment(auth)
+        }
     }
+
+    @State private var pendingDeletion: IndexSet?
 
     @ViewBuilder private var content: some View {
         if moves.isEmpty {
@@ -47,18 +50,33 @@ struct MovesListView: View {
                     }
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
+                    .accessibilityHint("Opens \(move.name) dashboard")
                 }
-                .onDelete { offsets in
-                    for index in offsets {
-                        context.delete(moves[index])
-                    }
-                    try? context.save()
-                }
+                .onDelete { offsets in pendingDeletion = offsets }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .navigationDestination(for: Move.self) { move in
                 DashboardView(move: move)
+            }
+            .confirmationDialog(
+                "Delete this move?",
+                isPresented: Binding(
+                    get: { pendingDeletion != nil },
+                    set: { if !$0 { pendingDeletion = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Delete permanently", role: .destructive) {
+                    if let offsets = pendingDeletion {
+                        for index in offsets { context.delete(moves[index]) }
+                        try? context.save()
+                    }
+                    pendingDeletion = nil
+                }
+                Button("Cancel", role: .cancel) { pendingDeletion = nil }
+            } message: {
+                Text("All rooms, items, photos, and boxes for this move will be removed from every signed-in device.")
             }
         }
     }
