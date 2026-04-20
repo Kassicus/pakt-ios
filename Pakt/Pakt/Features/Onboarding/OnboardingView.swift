@@ -3,6 +3,7 @@ import SwiftUI
 struct OnboardingView: View {
     @AppStorage(OnboardingKey.completed) private var completed = false
     @State private var pageIndex = 0
+    @State private var showingSignIn = false
 
     private let pages: [Page] = [
         .init(
@@ -61,28 +62,46 @@ struct OnboardingView: View {
             }
         }
         .preferredColorScheme(.dark)
-    }
-
-    private var controls: some View {
-        VStack(spacing: PaktSpace.s2) {
-            PaktButton(ctaLabel, size: .lg, action: advance)
-                .accessibilityIdentifier("onboarding.cta")
-            Text("You'll sign in with Apple on the next screen.")
-                .font(.pakt(.small))
-                .foregroundStyle(Color.paktMutedForeground)
-                .opacity(pageIndex == pages.count - 1 ? 1 : 0)
+        .fullScreenCover(isPresented: $showingSignIn) {
+            SignInView(
+                onSkip: {
+                    showingSignIn = false
+                    finish()
+                },
+                onSignedIn: {
+                    showingSignIn = false
+                    finish()
+                }
+            )
         }
     }
 
-    private var ctaLabel: String {
-        pageIndex == pages.count - 1 ? "Get started" : "Continue"
-    }
-
-    private func advance() {
+    @ViewBuilder private var controls: some View {
         if pageIndex == pages.count - 1 {
-            finish()
+            VStack(spacing: PaktSpace.s2) {
+                PaktButton("Sign in with Apple", size: .lg) {
+                    showingSignIn = true
+                }
+                .accessibilityIdentifier("onboarding.signIn")
+
+                PaktButton("Start without signing in", variant: .ghost, size: .lg) {
+                    finish()
+                }
+                .accessibilityIdentifier("onboarding.guest")
+
+                Text("You can sign in later from Settings. Sign-in is required only to invite collaborators.")
+                    .font(.pakt(.small))
+                    .foregroundStyle(Color.paktMutedForeground)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, PaktSpace.s1)
+            }
         } else {
-            withAnimation { pageIndex += 1 }
+            VStack(spacing: PaktSpace.s2) {
+                PaktButton("Continue", size: .lg) {
+                    withAnimation { pageIndex += 1 }
+                }
+                .accessibilityIdentifier("onboarding.cta")
+            }
         }
     }
 

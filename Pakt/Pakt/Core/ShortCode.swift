@@ -30,6 +30,12 @@ public enum ShortCode {
         random(from: inviteAlphabet, length: 32)
     }
 
+    /// Human-friendly short code for mobile invites. Uses the safe alphabet
+    /// (no 0/O/1/I/L) so users can read and type it without confusion.
+    public static func generateInviteCode() -> String {
+        "PAKT-" + random(from: safeAlphabet, length: 4)
+    }
+
     private static func random(from alphabet: [Character], length: Int) -> String {
         var out = String()
         out.reserveCapacity(length)

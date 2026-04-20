@@ -8,6 +8,7 @@ struct MovesListView: View {
 
     @State private var showingNewMove = false
     @State private var showingSettings = false
+    @State private var showingAcceptInvite = false
 
     var body: some View {
         NavigationStack {
@@ -21,9 +22,20 @@ struct MovesListView: View {
                         }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button { showingNewMove = true } label: {
+                        Menu {
+                            Button {
+                                showingNewMove = true
+                            } label: {
+                                Label("New move", systemImage: "plus")
+                            }
+                            Button {
+                                showingAcceptInvite = true
+                            } label: {
+                                Label("Accept invite", systemImage: "envelope.open")
+                            }
+                        } label: {
                             Image(paktIcon: "plus")
-                                .accessibilityLabel("New move")
+                                .accessibilityLabel("Add")
                         }
                     }
                 }
@@ -35,13 +47,19 @@ struct MovesListView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView().environment(auth)
         }
+        .sheet(isPresented: $showingAcceptInvite) {
+            AcceptInviteView().environment(auth)
+        }
     }
 
     @State private var pendingDeletion: IndexSet?
 
     @ViewBuilder private var content: some View {
         if moves.isEmpty {
-            EmptyMovesView { showingNewMove = true }
+            EmptyMovesView(
+                onCreate: { showingNewMove = true },
+                onAcceptInvite: { showingAcceptInvite = true }
+            )
         } else {
             List {
                 ForEach(moves) { move in
@@ -92,6 +110,9 @@ private struct MoveRow: View {
                     Text(move.name).font(.pakt(.heading))
                         .foregroundStyle(Color.paktForeground)
                     Spacer()
+                    if move.isShared {
+                        PaktBadge("Shared", tone: .default)
+                    }
                     PaktBadge(statusLabel, tone: .secondary)
                 }
                 if let date = move.plannedMoveDate {
@@ -123,6 +144,7 @@ private struct MoveRow: View {
 
 private struct EmptyMovesView: View {
     let onCreate: () -> Void
+    let onAcceptInvite: () -> Void
 
     var body: some View {
         VStack(spacing: PaktSpace.s4) {
@@ -137,6 +159,7 @@ private struct EmptyMovesView: View {
                 .padding(.horizontal, PaktSpace.s6)
             PaktButton("Create a move", size: .lg, action: onCreate)
                 .padding(.top, PaktSpace.s2)
+            PaktButton("Accept an invite", variant: .ghost, size: .lg, action: onAcceptInvite)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(PaktSpace.s6)

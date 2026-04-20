@@ -15,12 +15,17 @@ struct RootView: View {
                         Color.paktBackground.ignoresSafeArea()
                         ProgressView().tint(Color.paktPrimary)
                     }
-                case .signedOut:
-                    SignInView()
-                case .signedIn:
+                case .guest, .reconciling, .signedIn:
                     MovesListView()
                 }
             }
+        }
+        .sheet(isPresented: Binding(
+            get: { auth.mergeDecisionRequired },
+            set: { _ in }
+        )) {
+            MergeDecisionSheet()
+                .environment(auth)
         }
         .animation(.easeInOut(duration: 0.25), value: onboardingCompleted)
     }

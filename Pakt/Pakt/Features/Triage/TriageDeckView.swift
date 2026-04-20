@@ -97,23 +97,44 @@ struct TriageDeckView: View {
     private var cardStack: some View {
         ZStack {
             ForEach(Array(visibleItems.prefix(3).enumerated().reversed()), id: \.element.id) { index, item in
-                let depth = CGFloat(index)
-                TriageCardView(item: item)
-                    .offset(index == 0 ? dragTranslation : CGSize(width: 0, height: -depth * 8))
-                    .rotationEffect(index == 0 ? .degrees(Double(dragTranslation.width) / 18) : .zero)
-                    .scaleEffect(1 - depth * 0.04)
-                    .opacity(1 - depth * 0.15)
-                    .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.8), value: dragTranslation)
-                    .overlay(alignment: .top) {
-                        if index == 0, let zone = currentZone {
-                            ZoneBadge(zone: zone)
-                                .padding(.top, PaktSpace.s2)
-                                .transition(.opacity)
-                        }
-                    }
-                    .gesture(index == 0 ? dragGesture(for: item) : nil)
-                    .zIndex(Double(10 - depth))
+                cardView(index: index, item: item)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func cardView(index: Int, item: Item) -> some View {
+        let depth = CGFloat(index)
+        let offset = index == 0 ? dragTranslation : CGSize(width: 0, height: -depth * CGFloat(8))
+        let rotation = index == 0 ? Angle.degrees(Double(dragTranslation.width) / 18) : .zero
+        let scale: CGFloat = 1 - depth * CGFloat(0.04)
+        let op: Double = 1 - Double(depth) * 0.15
+        let z: Double = Double(10 - Int(depth))
+
+        let base = TriageCardView(item: item)
+            .offset(offset)
+            .rotationEffect(rotation)
+            .scaleEffect(scale)
+            .opacity(op)
+            .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.8), value: dragTranslation)
+            .overlay(alignment: .top) {
+                cardOverlay(index: index)
+            }
+            .zIndex(z)
+
+        if index == 0 {
+            base.gesture(dragGesture(for: item))
+        } else {
+            base
+        }
+    }
+
+    @ViewBuilder
+    private func cardOverlay(index: Int) -> some View {
+        if index == 0, let zone = currentZone {
+            ZoneBadge(zone: zone)
+                .padding(.top, PaktSpace.s2)
+                .transition(.opacity)
         }
     }
 

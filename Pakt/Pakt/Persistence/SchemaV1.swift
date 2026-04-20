@@ -32,6 +32,12 @@ import SwiftData
     public var createdAt: Date = Date()
     public var updatedAt: Date = Date()
 
+    // Collaboration — populated once a Move is wrapped in a CKShare.
+    public var isShared: Bool = false
+    public var ownerAppleUserId: String?
+    public var cloudKitZoneName: String?
+    public var cloudKitShareURLString: String?
+
     @Relationship(deleteRule: .cascade, inverse: \Room.move)  public var rooms: [Room]?
     @Relationship(deleteRule: .cascade, inverse: \Item.move)  public var items: [Item]?
     @Relationship(deleteRule: .cascade, inverse: \Box.move)   public var boxes: [Box]?

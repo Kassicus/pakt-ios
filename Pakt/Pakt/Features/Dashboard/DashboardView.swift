@@ -4,14 +4,20 @@ import SwiftUI
 struct DashboardView: View {
     let move: Move
 
+    @Environment(AuthStore.self) private var auth
+    @Environment(CloudKitSyncEngine.self) private var syncEngine
     @Environment(\.modelContext) private var context
     @State private var exportedPDFURL: URL?
     @State private var exportError: String?
+    @State private var showingInvite = false
+    @State private var showingInviteSignInPromo = false
+    @State private var showingParticipants = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: PaktSpace.s4) {
                 header
+                collabBanner
                 quickActions
                 countsGrid
                 predictionsCard
@@ -23,6 +29,14 @@ struct DashboardView: View {
         .navigationTitle(move.name)
         .navigationBarTitleDisplayMode(.large)
         .toolbar { toolbar }
+        .task(id: move.id) {
+            // Pull the latest state for this shared Move whenever the user
+            // lands here. Keeps the Dashboard feeling fresh even if a push
+            // notification was dropped.
+            if move.isShared {
+                await syncEngine.pullMove(move)
+            }
+        }
         .navigationDestination(for: Room.self) { room in
             RoomDetailView(room: room)
         }
@@ -38,6 +52,20 @@ struct DashboardView: View {
         )) { shareItem in
             ShareSheet(items: [shareItem.url])
         }
+        .sheet(isPresented: $showingInvite) {
+            InviteMoveView(move: move)
+                .environment(auth)
+        }
+        .sheet(isPresented: $showingInviteSignInPromo) {
+            SignInPromoView(context: .invite) {
+                showingInviteSignInPromo = false
+                showingInvite = true
+            }
+            .environment(auth)
+        }
+        .sheet(isPresented: $showingParticipants) {
+            ShareParticipantsView(move: move)
+        }
         .alert("Couldn't export",
                isPresented: Binding(
                 get: { exportError != nil },
@@ -47,6 +75,33 @@ struct DashboardView: View {
             Button("OK", role: .cancel) { exportError = nil }
         } message: {
             Text(exportError ?? "")
+        }
+    }
+
+    @ViewBuilder private var collabBanner: some View {
+        if move.isShared {
+            Button {
+                showingParticipants = true
+            } label: {
+                PaktCard {
+                    HStack(spacing: PaktSpace.s3) {
+                        Image(systemName: "person.2.fill")
+                            .foregroundStyle(Color.paktPrimary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Shared move")
+                                .font(.pakt(.bodyMedium))
+                                .foregroundStyle(Color.paktForeground)
+                            Text("Tap to view collaborators")
+                                .font(.pakt(.small))
+                                .foregroundStyle(Color.paktMutedForeground)
+                        }
+                        Spacer()
+                        Image(paktIcon: "chevron-right")
+                            .foregroundStyle(Color.paktMutedForeground)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -68,6 +123,23 @@ struct DashboardView: View {
                                 }
                             }
                         }
+                    }
+                }
+                Divider()
+                Button {
+                    if case .signedIn = auth.state {
+                        showingInvite = true
+                    } else {
+                        showingInviteSignInPromo = true
+                    }
+                } label: {
+                    Label("Invite collaborator", systemImage: "person.badge.plus")
+                }
+                if move.isShared {
+                    Button {
+                        showingParticipants = true
+                    } label: {
+                        Label("Collaborators", systemImage: "person.2")
                     }
                 }
                 Divider()
