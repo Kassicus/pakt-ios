@@ -25,7 +25,9 @@ struct SearchView: View {
                 } else {
                     List {
                         ForEach(results, id: \.id) { item in
-                            NavigationLink(value: item) {
+                            NavigationLink {
+                                ItemDetailView(item: item)
+                            } label: {
                                 ResultRow(item: item)
                             }
                             .listRowBackground(Color.paktCard)

@@ -37,15 +37,6 @@ struct DashboardView: View {
                 await syncEngine.pullMove(move)
             }
         }
-        .navigationDestination(for: Room.self) { room in
-            RoomDetailView(room: room)
-        }
-        .navigationDestination(for: Item.self) { item in
-            ItemDetailView(item: item)
-        }
-        .navigationDestination(for: Box.self) { box in
-            BoxDetailView(box: box)
-        }
         .sheet(item: Binding(
             get: { exportedPDFURL.map(PDFShareItem.init) },
             set: { _ in exportedPDFURL = nil }

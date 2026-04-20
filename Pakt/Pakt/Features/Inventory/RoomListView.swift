@@ -115,46 +115,53 @@ private struct RoomRow: View {
 
     var body: some View {
         VStack(spacing: 4) {
-            NavigationLink(value: room) {
-                HStack(spacing: PaktSpace.s2) {
-                    if depth > 0 {
-                        Rectangle().fill(Color.paktBorder).frame(width: 2).padding(.leading, 6)
-                    }
-                    Image(paktIcon: depth > 0 ? "package-open" : "home")
-                        .font(.system(size: 18, weight: .medium))
-                        .frame(width: 32, height: 32)
-                        .foregroundStyle(Color.paktMutedForeground)
-                        .background(RoundedRectangle(cornerRadius: PaktRadius.md).fill(Color.paktMuted))
+            HStack(spacing: PaktSpace.s2) {
+                NavigationLink {
+                    RoomDetailView(room: room)
+                } label: {
+                    HStack(spacing: PaktSpace.s2) {
+                        if depth > 0 {
+                            Rectangle().fill(Color.paktBorder).frame(width: 2).padding(.leading, 6)
+                        }
+                        Image(paktIcon: depth > 0 ? "package-open" : "home")
+                            .font(.system(size: 18, weight: .medium))
+                            .frame(width: 32, height: 32)
+                            .foregroundStyle(Color.paktMutedForeground)
+                            .background(RoundedRectangle(cornerRadius: PaktRadius.md).fill(Color.paktMuted))
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(room.label).font(depth > 0 ? .pakt(.body) : .pakt(.bodyMedium))
-                            .foregroundStyle(Color.paktForeground)
-                        Text(itemCountLabel)
-                            .font(.pakt(.small))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(room.label).font(depth > 0 ? .pakt(.body) : .pakt(.bodyMedium))
+                                .foregroundStyle(Color.paktForeground)
+                            Text(itemCountLabel)
+                                .font(.pakt(.small))
+                                .foregroundStyle(Color.paktMutedForeground)
+                        }
+
+                        Spacer()
+
+                        Image(paktIcon: "chevron-right")
                             .foregroundStyle(Color.paktMutedForeground)
                     }
-
-                    Spacer()
-
-                    Menu {
-                        Button("Add closet") { showingAddChild = true }
-                        Button("Rename") { showingEdit = true }
-                        Divider()
-                        Button("Delete", role: .destructive) { delete() }
-                    } label: {
-                        Image(paktIcon: "more-vertical").foregroundStyle(Color.paktMutedForeground)
-                            .padding(.horizontal, 6)
-                    }
-                    .buttonStyle(.plain)
-
-                    Image(paktIcon: "chevron-right")
-                        .foregroundStyle(Color.paktMutedForeground)
+                    .contentShape(Rectangle())
                 }
-                .padding(PaktSpace.s3)
-                .background(RoundedRectangle(cornerRadius: PaktRadius.lg).fill(Color.paktCard))
-                .overlay(RoundedRectangle(cornerRadius: PaktRadius.lg).strokeBorder(Color.paktBorder, lineWidth: 1))
+                .buttonStyle(.plain)
+
+                Menu {
+                    Button("Add sub-room") { showingAddChild = true }
+                    Button("Rename") { showingEdit = true }
+                    Divider()
+                    Button("Delete", role: .destructive) { delete() }
+                } label: {
+                    Image(paktIcon: "more-vertical")
+                        .foregroundStyle(Color.paktMutedForeground)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+            .padding(PaktSpace.s3)
+            .background(RoundedRectangle(cornerRadius: PaktRadius.lg).fill(Color.paktCard))
+            .overlay(RoundedRectangle(cornerRadius: PaktRadius.lg).strokeBorder(Color.paktBorder, lineWidth: 1))
             .padding(.leading, depth > 0 ? CGFloat(depth) * 16 : 0)
 
             ForEach(children, id: \.id) { child in

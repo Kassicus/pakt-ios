@@ -23,7 +23,7 @@ struct AddRoomSheet: View {
                 VStack(alignment: .leading, spacing: PaktSpace.s4) {
                     Text(parent == nil
                          ? (side == .origin ? "New origin room" : "New destination room")
-                         : "New closet in \(parent?.label ?? "")")
+                         : "New sub-room in \(parent?.label ?? "")")
                         .font(.pakt(.heading))
                         .foregroundStyle(Color.paktForeground)
 

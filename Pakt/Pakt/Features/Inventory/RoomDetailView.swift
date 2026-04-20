@@ -11,9 +11,11 @@ struct RoomDetailView: View {
     var body: some View {
         List {
             if !childRooms.isEmpty {
-                Section("Closets") {
+                Section("Sub-rooms") {
                     ForEach(childRooms, id: \.id) { child in
-                        NavigationLink(value: child) {
+                        NavigationLink {
+                            RoomDetailView(room: child)
+                        } label: {
                             HStack {
                                 Image(paktIcon: "package-open")
                                     .foregroundStyle(Color.paktMutedForeground)
@@ -31,7 +33,9 @@ struct RoomDetailView: View {
 
             Section(items.isEmpty ? "" : "Items") {
                 ForEach(items, id: \.id) { item in
-                    NavigationLink(value: item) {
+                    NavigationLink {
+                        ItemDetailView(item: item)
+                    } label: {
                         ItemRow(item: item)
                     }
                     .listRowBackground(Color.paktCard)
@@ -52,7 +56,7 @@ struct RoomDetailView: View {
                     } label: { Label("Add item", systemImage: "plus") }
                     Button {
                         showingAddChild = true
-                    } label: { Label("Add closet", systemImage: "folder.badge.plus") }
+                    } label: { Label("Add sub-room", systemImage: "folder.badge.plus") }
                 } label: {
                     Image(paktIcon: "plus")
                 }

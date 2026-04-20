@@ -4,6 +4,7 @@ import SwiftUI
 struct AddItemSheet: View {
     let move: Move?
     let sourceRoom: Room?
+    var onCreate: ((Item) -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -103,6 +104,7 @@ struct AddItemSheet: View {
         item.notes = notes.isEmpty ? nil : notes
         context.insert(item)
         try? context.save()
+        onCreate?(item)
         dismiss()
     }
 

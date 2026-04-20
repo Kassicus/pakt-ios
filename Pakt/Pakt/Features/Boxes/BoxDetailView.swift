@@ -8,6 +8,7 @@ struct BoxDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showingAddItems = false
+    @State private var showingNewItem = false
     @State private var deleted = false
 
     var body: some View {
@@ -65,8 +66,17 @@ struct BoxDetailView: View {
                         .font(.pakt(.small))
                         .foregroundStyle(Color.paktMutedForeground)
                 }
-                Button {
-                    showingAddItems = true
+                Menu {
+                    Button {
+                        showingNewItem = true
+                    } label: {
+                        Label("New item", systemImage: "sparkles")
+                    }
+                    Button {
+                        showingAddItems = true
+                    } label: {
+                        Label("From inventory", systemImage: "tray.full")
+                    }
                 } label: {
                     Label("Add items", systemImage: "plus")
                 }
@@ -142,15 +152,25 @@ struct BoxDetailView: View {
         .background(Color.paktBackground)
         .navigationTitle(box.shortCode)
         .navigationBarTitleDisplayMode(.inline)
-        .onDisappear {
-            if !deleted {
-                box.updatedAt = Date()
-                try? context.save()
-            }
-        }
         .sheet(isPresented: $showingAddItems) {
             BoxItemPickerSheet(box: box).presentationDetents([.large])
         }
+        .sheet(isPresented: $showingNewItem) {
+            AddItemSheet(
+                move: box.move,
+                sourceRoom: box.sourceRoom,
+                onCreate: attach
+            )
+            .presentationDetents([.large])
+        }
+    }
+
+    private func attach(_ item: Item) {
+        let bi = BoxItem(box: box, item: item, quantity: item.quantity)
+        context.insert(bi)
+        box.updatedAt = Date()
+        if box.status == .empty { box.status = .packing }
+        try? context.save()
     }
 
     // MARK: - Helpers

@@ -9,6 +9,7 @@ struct BoxItemPickerSheet: View {
 
     @State private var query: String = ""
     @State private var selectedIds: Set<String> = []
+    @State private var showingNewItem = false
 
     var body: some View {
         NavigationStack {
@@ -42,12 +43,26 @@ struct BoxItemPickerSheet: View {
                         .foregroundStyle(Color.paktMutedForeground)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(selectedIds.isEmpty ? "Add" : "Add (\(selectedIds.count))") {
-                        attachSelected()
+                    if selectedIds.isEmpty {
+                        Button {
+                            showingNewItem = true
+                        } label: {
+                            Label("New", systemImage: "plus")
+                        }
+                        .fontWeight(.semibold)
+                    } else {
+                        Button("Add (\(selectedIds.count))") { attachSelected() }
+                            .fontWeight(.semibold)
                     }
-                    .disabled(selectedIds.isEmpty)
-                    .fontWeight(.semibold)
                 }
+            }
+            .sheet(isPresented: $showingNewItem) {
+                AddItemSheet(
+                    move: box.move,
+                    sourceRoom: box.sourceRoom,
+                    onCreate: attachCreated
+                )
+                .presentationDetents([.large])
             }
         }
     }
@@ -78,6 +93,14 @@ struct BoxItemPickerSheet: View {
         } else {
             selectedIds.insert(item.id)
         }
+    }
+
+    private func attachCreated(_ item: Item) {
+        let bi = BoxItem(box: box, item: item, quantity: item.quantity)
+        context.insert(bi)
+        box.updatedAt = Date()
+        if box.status == .empty { box.status = .packing }
+        try? context.save()
     }
 
     private func attachSelected() {

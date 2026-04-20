@@ -21,7 +21,9 @@ struct BoxesListView: View {
                     ForEach(statusGroups, id: \.status) { group in
                         Section(header: sectionHeader(group)) {
                             ForEach(group.boxes, id: \.id) { box in
-                                NavigationLink(value: box) {
+                                NavigationLink {
+                                    BoxDetailView(box: box)
+                                } label: {
                                     BoxRow(box: box)
                                 }
                                 .listRowBackground(Color.paktCard)
@@ -58,9 +60,6 @@ struct BoxesListView: View {
         }
         .sheet(isPresented: $showingBoxTypes) {
             NavigationStack { BoxTypesView(move: move) }
-        }
-        .navigationDestination(for: Box.self) { box in
-            BoxDetailView(box: box)
         }
     }
 
