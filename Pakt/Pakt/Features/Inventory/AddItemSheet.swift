@@ -19,55 +19,21 @@ struct AddItemSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Item") {
-                    TextField("Name", text: $name)
-                    Stepper("Quantity: \(quantity)", value: $quantity, in: 1...999)
-                }
+            PaktScreen(accent: .paktPrimary) {
+                PaktHeroHeader(
+                    eyebrow: sourceRoom?.label ?? "New",
+                    title: "Add item",
+                    subtitle: sourceRoom.map { "In \($0.label)" } ?? "Loose item",
+                    accent: .paktPrimary,
+                    titleStyle: .title
+                )
 
-                Section("Category") {
-                    Picker("Category", selection: $categoryId) {
-                        ForEach(orderedCategories) { cat in
-                            Text(cat.label).tag(cat.id)
-                        }
-                    }
-                    if let cat = ItemCategories.lookup(categoryId) {
-                        HStack {
-                            Text("Typical volume")
-                            Spacer()
-                            Text("\(cat.volumeCuFtPerItem, specifier: "%.2f") cuft")
-                                .foregroundStyle(.secondary)
-                        }
-                        HStack {
-                            Text("Typical weight")
-                            Spacer()
-                            Text("\(cat.weightLbsPerItem, specifier: "%.1f") lbs")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-
-                Section("Triage") {
-                    Picker("Disposition", selection: $disposition) {
-                        ForEach(Disposition.allCases, id: \.self) { d in
-                            Text(label(for: d)).tag(d)
-                        }
-                    }
-                    Picker("Fragility", selection: $fragility) {
-                        Text("Normal").tag(Fragility.normal)
-                        Text("Fragile").tag(Fragility.fragile)
-                        Text("Very fragile").tag(Fragility.veryFragile)
-                    }
-                }
-
-                Section("Notes") {
-                    TextField("Optional notes", text: $notes, axis: .vertical)
-                        .lineLimit(3...6)
-                }
+                itemSurface
+                categorySurface
+                triageSurface
+                notesSurface
             }
-            .scrollContentBackground(.hidden)
-            .background(Color.paktBackground)
-            .navigationTitle("Add item")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -78,6 +44,7 @@ struct AddItemSheet: View {
                     Button("Add", action: submit)
                         .disabled(!canSubmit)
                         .fontWeight(.semibold)
+                        .foregroundStyle(canSubmit ? Color.paktPrimary : Color.paktMutedForeground)
                 }
             }
             .onAppear {
@@ -90,6 +57,117 @@ struct AddItemSheet: View {
             }
         }
     }
+
+    // MARK: - Surfaces
+
+    private var itemSurface: some View {
+        PaktSurface(title: "Item", icon: "box", accent: .paktPrimary) {
+            VStack(alignment: .leading, spacing: PaktSpace.s3) {
+                TextField("Name", text: $name)
+                    .font(.pakt(.title))
+                    .foregroundStyle(Color.paktForeground)
+                    .padding(PaktSpace.s3)
+                    .background(
+                        RoundedRectangle(cornerRadius: PaktRadius.lg, style: .continuous)
+                            .fill(Color.paktMuted)
+                    )
+
+                PaktField("Quantity") {
+                    Stepper("\(quantity)", value: $quantity, in: 1...999)
+                        .labelsHidden()
+                }
+            }
+        }
+    }
+
+    private var categorySurface: some View {
+        PaktSurface(title: "Category", icon: "tag", accent: .paktStorage) {
+            VStack(alignment: .leading, spacing: PaktSpace.s3) {
+                Picker("Category", selection: $categoryId) {
+                    ForEach(orderedCategories) { cat in
+                        Text(cat.label).tag(cat.id)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .padding(.horizontal, PaktSpace.s3)
+                .padding(.vertical, PaktSpace.s2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: PaktRadius.lg, style: .continuous)
+                        .fill(Color.paktMuted)
+                )
+                .tint(Color.paktForeground)
+
+                if let cat = ItemCategories.lookup(categoryId) {
+                    PaktFieldStack {
+                        PaktField("Typical volume") {
+                            Text("\(cat.volumeCuFtPerItem, specifier: "%.2f") cuft")
+                        }
+                        PaktField("Typical weight") {
+                            Text("\(cat.weightLbsPerItem, specifier: "%.1f") lbs")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var triageSurface: some View {
+        PaktSurface(title: "Triage", icon: "shuffle", accent: .paktDonate) {
+            VStack(alignment: .leading, spacing: PaktSpace.s3) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Disposition")
+                        .font(.pakt(.bodyMedium))
+                        .foregroundStyle(Color.paktForeground)
+                    FlowLayout(spacing: 6, lineSpacing: 6) {
+                        ForEach(Disposition.allCases, id: \.self) { d in
+                            DispositionPill(
+                                label: label(for: d),
+                                tint: tint(for: d),
+                                isSelected: disposition == d
+                            ) {
+                                disposition = d
+                                UISelectionFeedbackGenerator().selectionChanged()
+                            }
+                        }
+                    }
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Fragility")
+                        .font(.pakt(.bodyMedium))
+                        .foregroundStyle(Color.paktForeground)
+                    HStack(spacing: 6) {
+                        DispositionPill(label: "Normal", tint: .paktMutedForeground, isSelected: fragility == .normal) {
+                            fragility = .normal
+                        }
+                        DispositionPill(label: "Fragile", tint: .paktDonate, isSelected: fragility == .fragile) {
+                            fragility = .fragile
+                        }
+                        DispositionPill(label: "Very fragile", tint: .paktTrash, isSelected: fragility == .veryFragile) {
+                            fragility = .veryFragile
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var notesSurface: some View {
+        PaktSurface(title: "Notes", icon: "file-text") {
+            TextField("Optional notes", text: $notes, axis: .vertical)
+                .lineLimit(3...6)
+                .font(.pakt(.body))
+                .foregroundStyle(Color.paktForeground)
+                .padding(PaktSpace.s2)
+                .background(
+                    RoundedRectangle(cornerRadius: PaktRadius.md, style: .continuous)
+                        .fill(Color.paktMuted)
+                )
+        }
+    }
+
+    // MARK: - Submit
 
     private var canSubmit: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -112,7 +190,6 @@ struct AddItemSheet: View {
         dismiss()
     }
 
-    /// If the user hasn't chosen, bump fragility to `.fragile` when the category is fragile.
     private var effectiveFragility: Fragility {
         if fragility == .normal, let cat = ItemCategories.lookup(categoryId), cat.fragile {
             return .fragile
@@ -156,7 +233,6 @@ struct AddItemSheet: View {
         return []
     }
 
-    /// Categories that are typical for the source room, followed by everything else.
     private var orderedCategories: [ItemCategory] {
         guard let room = sourceRoom else { return ItemCategories.all }
         let ids = relevantCategoryIds(for: room)
@@ -167,8 +243,6 @@ struct AddItemSheet: View {
         return relevant + other
     }
 
-    /// When packing into a box, items are being kept — either moved with the user or dropped in storage.
-    /// Surface that as the default so users only flip it for edge cases (donate/trash/sold).
     private var inferredDisposition: Disposition? {
         let destLabel = destinationRoom?.label.lowercased()
         let sourceLabel = sourceRoom?.label.lowercased()
@@ -190,5 +264,41 @@ struct AddItemSheet: View {
         case .trash:     return "Trash"
         case .sold:      return "Sold"
         }
+    }
+
+    private func tint(for d: Disposition) -> Color {
+        switch d {
+        case .undecided: return .paktUndecided
+        case .moving:    return .paktMoving
+        case .storage:   return .paktStorage
+        case .donate:    return .paktDonate
+        case .trash:     return .paktTrash
+        case .sold:      return .paktSold
+        }
+    }
+}
+
+private struct DispositionPill: View {
+    let label: String
+    let tint: Color
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: isSelected ? "checkmark" : "circle.dotted")
+                    .font(.system(size: 10, weight: .semibold))
+                Text(label)
+                    .font(.pakt(.small))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .foregroundStyle(isSelected ? Color.paktPrimaryForeground : Color.paktForeground)
+            .background(
+                Capsule().fill(isSelected ? tint : Color.paktMuted)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }

@@ -89,6 +89,44 @@ public struct DesignSystemCatalog: View {
                     .foregroundStyle(Color.paktForeground)
                 }
 
+                section("Section headers (in Form)") {
+                    Form {
+                        Section { Text("Row") } header: {
+                            PaktSectionHeader("Status", icon: "activity", accent: .paktPrimary)
+                        }
+                        Section { Text("Row") } header: {
+                            PaktSectionHeader("Contents", icon: "package-open", accent: .paktStorage)
+                        }
+                        Section { Text("Row") } header: {
+                            PaktSectionHeader("Tags", icon: "tag", accent: .paktDonate)
+                        }
+                    }
+                    .scrollContentBackground(.hidden)
+                    .frame(height: 280)
+                }
+
+                section("Box status track") {
+                    VStack(alignment: .leading, spacing: PaktSpace.s3) {
+                        ForEach(BoxStatus.ordered, id: \.self) { status in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(status.label).font(.pakt(.small))
+                                    .foregroundStyle(Color.paktMutedForeground)
+                                BoxStatusTrack(current: status)
+                            }
+                        }
+                    }
+                }
+
+                section("Empty state") {
+                    PaktEmptyState(
+                        icon: "package-open",
+                        title: "Start your first move",
+                        message: "Track inventory, box contents, and everything else from here.",
+                        primary: .init("Create a move") {},
+                        secondary: .init("Accept an invite") {}
+                    )
+                }
+
                 Spacer(minLength: 80)
             }
             .padding(PaktSpace.s4)

@@ -17,19 +17,22 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                accountSection
-                appearanceSection
-                dataSection
-                aboutSection
+            PaktScreen(accent: .paktPrimary) {
+                heroHeader
+                accountSurface
+                appearanceSurface
+                dataSurface
+                aboutSurface
+                if isSignedIn {
+                    signOutButton
+                }
             }
-            .scrollContentBackground(.hidden)
-            .background(Color.paktBackground)
-            .navigationTitle("Settings")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Done") { dismiss() }.foregroundStyle(Color.paktMutedForeground)
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(Color.paktMutedForeground)
                 }
             }
             .confirmationDialog(
@@ -52,139 +55,217 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Sections
+    // MARK: - Hero
 
-    @ViewBuilder private var accountSection: some View {
-        Section("Account") {
+    private var heroHeader: some View {
+        PaktHeroHeader(
+            eyebrow: "Account",
+            title: "Settings",
+            subtitle: isSignedIn ? (currentUser?.displayName ?? "Signed in with Apple") : "Guest",
+            accent: .paktPrimary,
+            titleStyle: .hero
+        ) {
             if isSignedIn {
-                signedInAccountRow
-            } else {
-                guestAccountRow
-            }
-        }
-    }
-
-    private var signedInAccountRow: some View {
-        HStack(spacing: PaktSpace.s3) {
-            ZStack {
-                Circle().fill(Color.paktPrimary.opacity(0.15))
-                Text(initials)
-                    .font(.pakt(.bodyMedium))
-                    .foregroundStyle(Color.paktPrimary)
-            }
-            .frame(width: 44, height: 44)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(currentUser?.displayName ?? "Signed in with Apple")
-                    .font(.pakt(.bodyMedium))
-                    .foregroundStyle(Color.paktForeground)
-                if let email = currentUser?.email {
-                    Text(email)
-                        .font(.pakt(.small))
-                        .foregroundStyle(Color.paktMutedForeground)
-                } else {
-                    Text("Apple ID")
-                        .font(.pakt(.small))
-                        .foregroundStyle(Color.paktMutedForeground)
-                }
-            }
-            Spacer()
-        }
-        .padding(.vertical, 2)
-    }
-
-    private var guestAccountRow: some View {
-        Button {
-            showingSignInPromo = true
-        } label: {
-            HStack(spacing: PaktSpace.s3) {
                 ZStack {
-                    Circle().fill(Color.paktMutedForeground.opacity(0.12))
-                    Image(systemName: "person.crop.circle.badge.plus")
-                        .font(.system(size: 22))
-                        .foregroundStyle(Color.paktMutedForeground)
+                    Circle().fill(
+                        LinearGradient(
+                            colors: [Color.paktPrimary.opacity(0.28), Color.paktAccent.opacity(0.28)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    Circle().strokeBorder(Color.paktPrimary.opacity(0.4), lineWidth: 1)
+                    Text(initials)
+                        .font(.pakt(.title))
+                        .foregroundStyle(Color.paktPrimary)
                 }
-                .frame(width: 44, height: 44)
+                .frame(width: 64, height: 64)
+            }
+        }
+    }
 
+    // MARK: - Surfaces
+
+    @ViewBuilder private var accountSurface: some View {
+        if isSignedIn {
+            PaktSurface(title: "Account", icon: "user", accent: .paktPrimary) {
+                PaktFieldStack {
+                    PaktField("Signed in as") {
+                        Text(currentUser?.displayName ?? "Apple ID")
+                            .foregroundStyle(Color.paktForeground)
+                    }
+                    if let email = currentUser?.email {
+                        PaktField("Email") {
+                            Text(email)
+                        }
+                    }
+                }
+            }
+        } else {
+            Button { showingSignInPromo = true } label: {
+                PaktSurface(accent: .paktMutedForeground, padding: PaktSpace.s4) {
+                    HStack(spacing: PaktSpace.s3) {
+                        ZStack {
+                            Circle().fill(Color.paktMutedForeground.opacity(0.12))
+                            Image(systemName: "person.crop.circle.badge.plus")
+                                .font(.system(size: 22))
+                                .foregroundStyle(Color.paktMutedForeground)
+                        }
+                        .frame(width: 48, height: 48)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Not signed in")
+                                .font(.pakt(.bodyMedium))
+                                .foregroundStyle(Color.paktForeground)
+                            Text("Sign in with Apple to back up to iCloud and invite collaborators.")
+                                .font(.pakt(.small))
+                                .foregroundStyle(Color.paktMutedForeground)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.pakt(.small))
+                            .foregroundStyle(Color.paktMutedForeground)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var appearanceSurface: some View {
+        PaktSurface(title: "Appearance", icon: "sliders", accent: .paktAccent) {
+            HStack(spacing: 8) {
+                ForEach(AppearancePreference.allCases) { pref in
+                    let isSelected = appearanceRaw == pref.rawValue
+                    Button {
+                        appearanceRaw = pref.rawValue
+                        UISelectionFeedbackGenerator().selectionChanged()
+                    } label: {
+                        VStack(spacing: 6) {
+                            Image(systemName: iconFor(pref))
+                                .font(.system(size: 18))
+                                .foregroundStyle(isSelected ? Color.paktPrimaryForeground : Color.paktForeground)
+                            Text(pref.label)
+                                .font(.pakt(.small))
+                                .foregroundStyle(isSelected ? Color.paktPrimaryForeground : Color.paktForeground)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, PaktSpace.s3)
+                        .background(
+                            RoundedRectangle(cornerRadius: PaktRadius.lg, style: .continuous)
+                                .fill(isSelected ? Color.paktPrimary : Color.paktMuted)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var dataSurface: some View {
+        PaktSurface(title: "Data", icon: "activity", accent: .paktStorage) {
+            HStack(spacing: PaktSpace.s3) {
+                Image(systemName: "icloud.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(isSignedIn ? Color.paktPrimary : Color.paktMutedForeground)
+                    .frame(width: 40, height: 40)
+                    .background(
+                        Circle()
+                            .fill((isSignedIn ? Color.paktPrimary : Color.paktMutedForeground).opacity(0.14))
+                    )
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Not signed in")
+                    Text("iCloud sync")
                         .font(.pakt(.bodyMedium))
                         .foregroundStyle(Color.paktForeground)
-                    Text("Sign in with Apple to back up to iCloud and invite collaborators.")
+                    Text(isSignedIn
+                         ? "Changes sync automatically across your devices."
+                         : "Sign in with Apple to sync your moves across devices.")
                         .font(.pakt(.small))
                         .foregroundStyle(Color.paktMutedForeground)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                Image(systemName: "chevron.right")
+                Text(isSignedIn ? "ON" : "OFF")
                     .font(.pakt(.small))
-                    .foregroundStyle(Color.paktMutedForeground)
-            }
-            .padding(.vertical, 2)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var appearanceSection: some View {
-        Section("Appearance") {
-            Picker("Theme", selection: $appearanceRaw) {
-                ForEach(AppearancePreference.allCases) { pref in
-                    Text(pref.label).tag(pref.rawValue)
-                }
-            }
-            .pickerStyle(.inline)
-            .labelsHidden()
-        }
-    }
-
-    private var dataSection: some View {
-        Section("Data") {
-            Label {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("iCloud sync").font(.pakt(.body))
-                    Text(isSignedIn
-                         ? "Changes sync automatically across your devices signed in with the same Apple ID."
-                         : "Sign in with Apple to sync your moves across devices.")
-                        .font(.pakt(.small))
-                        .foregroundStyle(Color.paktMutedForeground)
-                }
-            } icon: {
-                Image(systemName: "icloud.fill")
+                    .tracking(1.0)
                     .foregroundStyle(isSignedIn ? Color.paktPrimary : Color.paktMutedForeground)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule().fill((isSignedIn ? Color.paktPrimary : Color.paktMutedForeground).opacity(0.14))
+                    )
             }
         }
     }
 
-    private var aboutSection: some View {
-        Section("About") {
-            HStack {
-                Text("Version")
-                Spacer()
-                Text(versionString)
-                    .font(.pakt(.body).monospacedDigit())
-                    .foregroundStyle(Color.paktMutedForeground)
-            }
-            Button {
-                withAnimation { onboardingCompleted = false }
-                dismiss()
-            } label: {
-                Label("Replay intro", systemImage: "sparkles")
-            }
-            Button {
-                try? Tips.resetDatastore()
-            } label: {
-                Label("Reset tips", systemImage: "lightbulb")
-            }
-            if isSignedIn {
-                Button(role: .destructive) { confirmSignOut = true } label: {
-                    Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
+    private var aboutSurface: some View {
+        PaktSurface(title: "About", icon: "info") {
+            VStack(alignment: .leading, spacing: PaktSpace.s2) {
+                PaktFieldStack {
+                    PaktField("Version") {
+                        Text(versionString)
+                            .font(.pakt(.body).monospacedDigit())
+                    }
                 }
+                Rectangle().fill(Color.paktBorder.opacity(0.6)).frame(height: 1)
+                Button {
+                    withAnimation { onboardingCompleted = false }
+                    dismiss()
+                } label: {
+                    HStack {
+                        Image(systemName: "sparkles")
+                            .foregroundStyle(Color.paktPrimary)
+                        Text("Replay intro")
+                            .foregroundStyle(Color.paktForeground)
+                        Spacer()
+                        Image(paktIcon: "chevron-right")
+                            .foregroundStyle(Color.paktMutedForeground)
+                    }
+                    .font(.pakt(.body))
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+                Button {
+                    try? Tips.resetDatastore()
+                } label: {
+                    HStack {
+                        Image(systemName: "lightbulb")
+                            .foregroundStyle(Color.paktDonate)
+                        Text("Reset tips")
+                            .foregroundStyle(Color.paktForeground)
+                        Spacer()
+                        Image(paktIcon: "chevron-right")
+                            .foregroundStyle(Color.paktMutedForeground)
+                    }
+                    .font(.pakt(.body))
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
             }
         }
+    }
+
+    private var signOutButton: some View {
+        PaktButton(variant: .destructive, action: { confirmSignOut = true }) {
+            HStack(spacing: 4) {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                Text("Sign out")
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.top, PaktSpace.s2)
     }
 
     // MARK: - Derived
+
+    private func iconFor(_ pref: AppearancePreference) -> String {
+        switch pref {
+        case .system: return "circle.lefthalf.filled"
+        case .light:  return "sun.max.fill"
+        case .dark:   return "moon.fill"
+        }
+    }
 
     private var isSignedIn: Bool {
         if case .signedIn = auth.state { return true }

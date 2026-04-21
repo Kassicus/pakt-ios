@@ -52,6 +52,16 @@ public enum PaktIcon {
         "user":         "person",
         "users":        "person.2",
         "home":         "house",
+
+        // status + section affordances
+        "activity":     "waveform.path.ecg",
+        "file-text":    "doc.text",
+        "lock":         "lock.fill",
+        "sliders":      "slider.horizontal.3",
+        "tag":          "tag",
+        "circle":       "circle",
+        "tray.full":    "tray.full.fill",
+        "sparkles":     "sparkles",
     ]
 }
 

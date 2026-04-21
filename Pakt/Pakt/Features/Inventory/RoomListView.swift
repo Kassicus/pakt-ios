@@ -10,43 +10,59 @@ struct RoomListView: View {
     @State private var mirrorConfirmation = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: PaktSpace.s4) {
-                PaktTabs(selection: $side, options: [
-                    .init(value: .origin, label: "Origin"),
-                    .init(value: .destination, label: "Destination"),
-                ])
+        PaktScreen(accent: sideAccent) {
+            PaktHeroHeader(
+                eyebrow: "Inventory",
+                title: "Rooms",
+                subtitle: subtitle,
+                accent: sideAccent,
+                titleStyle: .title
+            ) {
+                Text("\(topLevelRooms(for: side).count)")
+                    .font(.pakt(.hero))
+                    .foregroundStyle(sideAccent)
+                    .contentTransition(.numericText(value: Double(topLevelRooms(for: side).count)))
+                    .animation(PaktMotion.standard, value: topLevelRooms(for: side).count)
+            }
 
-                if side == .destination, topLevelRooms(for: .destination).isEmpty,
-                   !topLevelRooms(for: .origin).isEmpty {
-                    PaktCard {
-                        VStack(alignment: .leading, spacing: PaktSpace.s2) {
-                            Text("Mirror your origin rooms").font(.pakt(.heading))
-                                .foregroundStyle(Color.paktForeground)
-                            Text("Copy every origin room to the destination side so you have somewhere to send each item.")
-                                .font(.pakt(.small))
-                                .foregroundStyle(Color.paktMutedForeground)
-                            PaktButton("Mirror rooms") { mirrorConfirmation = true }
-                        }
+            PaktTabs(selection: $side, options: [
+                .init(value: .origin, label: "Origin"),
+                .init(value: .destination, label: "Destination"),
+            ])
+
+            if side == .destination, topLevelRooms(for: .destination).isEmpty,
+               !topLevelRooms(for: .origin).isEmpty {
+                PaktSurface(title: "Shortcut", icon: "sparkles", accent: .paktAccent) {
+                    VStack(alignment: .leading, spacing: PaktSpace.s2) {
+                        Text("Mirror your origin rooms")
+                            .font(.pakt(.heading))
+                            .foregroundStyle(Color.paktForeground)
+                        Text("Copy every origin room to the destination side so you have somewhere to send each item.")
+                            .font(.pakt(.small))
+                            .foregroundStyle(Color.paktMutedForeground)
+                        PaktButton("Mirror rooms") { mirrorConfirmation = true }
+                            .padding(.top, 4)
                     }
                 }
+            }
 
-                VStack(alignment: .leading, spacing: 6) {
+            if topLevelRooms(for: side).isEmpty {
+                PaktEmptyState(
+                    icon: "home",
+                    title: side == .origin ? "Add your origin rooms" : "Add destination rooms",
+                    message: "Group your items by where they live today and where they'll go next.",
+                    accent: sideAccent,
+                    primary: .init("Add a room") { showingAddRoom = true }
+                )
+            } else {
+                VStack(spacing: PaktSpace.s2) {
                     ForEach(topLevelRooms(for: side), id: \.id) { room in
                         RoomRow(room: room, depth: 0)
                     }
                 }
-
-                if topLevelRooms(for: side).isEmpty {
-                    EmptyRoomsView(side: side) { showingAddRoom = true }
-                }
-
-                Spacer(minLength: 40)
             }
-            .padding(PaktSpace.s4)
         }
-        .background(Color.paktBackground)
-        .navigationTitle("Inventory")
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -69,6 +85,17 @@ struct RoomListView: View {
         }
     }
 
+    private var sideAccent: Color {
+        side == .origin ? .paktMoving : .paktStorage
+    }
+
+    private var subtitle: String {
+        let count = topLevelRooms(for: side).count
+        let noun = count == 1 ? "room" : "rooms"
+        let label = side == .origin ? "origin" : "destination"
+        return count == 0 ? "No \(label) rooms yet" : "\(count) \(label) \(noun)"
+    }
+
     private func topLevelRooms(for side: RoomKind) -> [Room] {
         (move.rooms ?? [])
             .filter { $0.deletedAt == nil && $0.kind == side && $0.parentRoom == nil }
@@ -80,7 +107,6 @@ struct RoomListView: View {
             (move.rooms ?? []).filter { $0.deletedAt == nil && $0.kind == .destination }.map(\.label)
         )
         let originRooms = (move.rooms ?? []).filter { $0.deletedAt == nil && $0.kind == .origin }
-        // 1st pass — top-level rooms; remember originId → new destination room for closet mapping.
         var idMap: [String: Room] = [:]
         for origin in originRooms where origin.parentRoom == nil {
             guard !existingDestLabels.contains(origin.label) else { continue }
@@ -89,7 +115,6 @@ struct RoomListView: View {
             context.insert(copy)
             idMap[origin.id] = copy
         }
-        // 2nd pass — closets under those rooms.
         for origin in originRooms where origin.parentRoom != nil {
             guard let parent = origin.parentRoom,
                   let newParent = idMap[parent.id] else { continue }
@@ -113,62 +138,84 @@ private struct RoomRow: View {
     @State private var showingEdit = false
     @State private var showingAddChild = false
 
+    private var rowAccent: Color {
+        if depth > 0 { return .paktMutedForeground }
+        return room.kind == .origin ? .paktMoving : .paktStorage
+    }
+
     var body: some View {
         VStack(spacing: 4) {
-            HStack(spacing: PaktSpace.s2) {
-                NavigationLink {
-                    RoomDetailView(room: room)
-                } label: {
-                    HStack(spacing: PaktSpace.s2) {
-                        if depth > 0 {
-                            Rectangle().fill(Color.paktBorder).frame(width: 2).padding(.leading, 6)
-                        }
-                        Image(paktIcon: depth > 0 ? "package-open" : "home")
-                            .font(.system(size: 18, weight: .medium))
-                            .frame(width: 32, height: 32)
-                            .foregroundStyle(Color.paktMutedForeground)
-                            .background(RoundedRectangle(cornerRadius: PaktRadius.md).fill(Color.paktMuted))
+            PaktSurface(accent: rowAccent, padding: PaktSpace.s3) {
+                HStack(spacing: PaktSpace.s2) {
+                    NavigationLink { RoomDetailView(room: room) } label: {
+                        HStack(spacing: PaktSpace.s3) {
+                            Image(paktIcon: depth > 0 ? "package-open" : "home")
+                                .font(.system(size: 18, weight: .medium))
+                                .frame(width: 36, height: 36)
+                                .foregroundStyle(rowAccent)
+                                .background(
+                                    RoundedRectangle(cornerRadius: PaktRadius.md, style: .continuous)
+                                        .fill(rowAccent.opacity(0.14))
+                                )
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(room.label).font(depth > 0 ? .pakt(.body) : .pakt(.bodyMedium))
-                                .foregroundStyle(Color.paktForeground)
-                            Text(itemCountLabel)
-                                .font(.pakt(.small))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(room.label)
+                                    .font(depth > 0 ? .pakt(.body) : .pakt(.bodyMedium))
+                                    .foregroundStyle(Color.paktForeground)
+                                Text(itemCountLabel)
+                                    .font(.pakt(.small))
+                                    .foregroundStyle(Color.paktMutedForeground)
+                            }
+
+                            Spacer()
+
+                            Image(paktIcon: "chevron-right")
                                 .foregroundStyle(Color.paktMutedForeground)
                         }
-
-                        Spacer()
-
-                        Image(paktIcon: "chevron-right")
-                            .foregroundStyle(Color.paktMutedForeground)
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
-                Menu {
-                    Button("Add sub-room") { showingAddChild = true }
-                    Button("Rename") { showingEdit = true }
-                    Divider()
-                    Button("Delete", role: .destructive) { delete() }
-                } label: {
-                    Image(paktIcon: "more-vertical")
-                        .foregroundStyle(Color.paktMutedForeground)
-                        .frame(width: 32, height: 32)
                         .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    Menu {
+                        Button { showingAddChild = true } label: {
+                            Label("Add sub-room", systemImage: "plus")
+                        }
+                        Button { showingEdit = true } label: {
+                            Label("Rename", systemImage: "pencil")
+                        }
+                        Divider()
+                        Button(role: .destructive) { delete() } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(paktIcon: "more-vertical")
+                            .foregroundStyle(Color.paktMutedForeground)
+                            .frame(width: 32, height: 32)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
-            .padding(PaktSpace.s3)
-            .background(RoundedRectangle(cornerRadius: PaktRadius.lg).fill(Color.paktCard))
-            .overlay(RoundedRectangle(cornerRadius: PaktRadius.lg).strokeBorder(Color.paktBorder, lineWidth: 1))
             .padding(.leading, depth > 0 ? CGFloat(depth) * 16 : 0)
+            .contextMenu {
+                Button { showingAddChild = true } label: {
+                    Label("Add sub-room", systemImage: "plus")
+                }
+                Button { showingEdit = true } label: {
+                    Label("Rename", systemImage: "pencil")
+                }
+                Button(role: .destructive) { delete() } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
 
             ForEach(children, id: \.id) { child in
                 RoomRow(room: child, depth: depth + 1)
             }
         }
-        .sheet(isPresented: $showingEdit) { RenameRoomSheet(room: room).presentationDetents([.height(200)]) }
+        .sheet(isPresented: $showingEdit) {
+            RenameRoomSheet(room: room).presentationDetents([.height(200)])
+        }
         .sheet(isPresented: $showingAddChild) {
             AddRoomSheet(move: room.move, side: room.kind, parent: room).presentationDetents([.medium])
         }
@@ -189,7 +236,6 @@ private struct RoomRow: View {
     }
 
     private func delete() {
-        // Children become top-level rooms of the same side (matches the web).
         for child in children {
             child.parentRoom = nil
             child.updatedAt = Date()
@@ -202,29 +248,5 @@ private struct RoomRow: View {
             room.updatedAt = Date()
             try? context.save()
         }
-    }
-}
-
-// MARK: - Empty state
-
-private struct EmptyRoomsView: View {
-    let side: RoomKind
-    let onAdd: () -> Void
-
-    var body: some View {
-        VStack(spacing: PaktSpace.s3) {
-            Image(paktIcon: "home")
-                .font(.system(size: 36))
-                .foregroundStyle(Color.paktMutedForeground)
-            Text(side == .origin ? "Add your origin rooms" : "Add destination rooms")
-                .font(.pakt(.heading))
-            Text("Group your items by where they live today and where they'll go next.")
-                .multilineTextAlignment(.center)
-                .font(.pakt(.small))
-                .foregroundStyle(Color.paktMutedForeground)
-            PaktButton("Add a room", action: onAdd)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(PaktSpace.s6)
     }
 }

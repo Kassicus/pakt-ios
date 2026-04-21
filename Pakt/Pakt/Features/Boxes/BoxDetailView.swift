@@ -10,8 +10,9 @@ struct BoxDetailView: View {
 
     @State private var showingAddItems = false
     @State private var showingNewItem = false
+    @State private var showingDeleteConfirm = false
     @State private var deleted = false
-    @State private var pendingRemoval: IndexSet?
+    @State private var pendingRemoval: BoxItem?
     @State private var showLabelSavedToast = false
     private let swipeTip = SwipeToRemoveBoxItemTip()
 
@@ -19,7 +20,22 @@ struct BoxDetailView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            form
+            PaktScreen(accent: statusAccent) {
+                heroHeader
+                heroActions
+
+                if labelAtTop { labelSurface }
+
+                contentsSurface
+                typeAndRoomsSurface
+                tagsSurface
+                detailsSurface
+
+                if !labelAtTop { labelSurface }
+
+                deleteButton
+            }
+
             if showLabelSavedToast {
                 Text("Saved label to Photos")
                     .font(.pakt(.small))
@@ -31,165 +47,13 @@ struct BoxDetailView: View {
                     .transition(.opacity)
             }
         }
-    }
-
-    private var form: some View {
-        Form {
-            Section("Status") {
-                HStack {
-                    PaktBadge(box.status.label, tone: box.status.tone)
-                    Spacer()
-                    Text(box.shortCode)
-                        .font(.pakt(.mono).monospaced())
-                        .foregroundStyle(Color.paktMutedForeground)
-                }
-                HStack(spacing: PaktSpace.s2) {
-                    Button { step(backwards: true) } label: {
-                        Label("Back", systemImage: "chevron.left")
-                    }
-                    .disabled(box.status.previousStatus == nil)
-                    .buttonStyle(.bordered)
-
-                    Spacer()
-
-                    if let next = box.status.nextStatus {
-                        Button {
-                            box.status = next
-                            box.updatedAt = Date()
-                            try? context.save()
-                        } label: {
-                            HStack {
-                                Text("Advance to \(next.label)")
-                                Image(systemName: "chevron.right")
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Color.paktPrimary)
-                    }
-                }
-            }
-
-            if labelAtTop { labelSection }
-
-            Section("Contents") {
-                let liveItems = (box.boxItems ?? []).filter { $0.item?.deletedAt == nil }
-                if !liveItems.isEmpty {
-                    if #available(iOS 17.0, *) {
-                        TipView(swipeTip)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                    }
-                    ForEach(liveItems, id: \.id) { bi in
-                        if let item = bi.item {
-                            HStack {
-                                Text(item.name).font(.pakt(.body))
-                                Spacer()
-                                Text("×\(bi.quantity)")
-                                    .font(.pakt(.small))
-                                    .foregroundStyle(Color.paktMutedForeground)
-                            }
-                        }
-                    }
-                    .onDelete { offsets in pendingRemoval = offsets }
-                } else {
-                    Text("No items yet.")
-                        .font(.pakt(.small))
-                        .foregroundStyle(Color.paktMutedForeground)
-                }
-                Menu {
-                    Button {
-                        showingNewItem = true
-                    } label: {
-                        Label("New item", systemImage: "sparkles")
-                    }
-                    Button {
-                        showingAddItems = true
-                    } label: {
-                        Label("From inventory", systemImage: "tray.full")
-                    }
-                } label: {
-                    Label("Add items", systemImage: "plus")
-                }
-            }
-
-            Section("Type & rooms") {
-                Picker("Box type", selection: Binding(
-                    get: { box.boxType?.id ?? "" },
-                    set: { box.boxType = availableBoxTypes.first { $0.id == $0.id } ?? box.boxType; setType(to: $0) }
-                )) {
-                    ForEach(availableBoxTypes, id: \.id) { t in
-                        Text(t.label).tag(t.id)
-                    }
-                }
-                Picker("Source room", selection: Binding(
-                    get: { box.sourceRoom?.id ?? "" },
-                    set: { setSource(to: $0) }
-                )) {
-                    Text("None").tag("")
-                    ForEach(originRooms, id: \.id) { r in
-                        Text(fullLabel(r)).tag(r.id)
-                    }
-                }
-                Picker("Destination", selection: Binding(
-                    get: { box.destinationRoom?.id ?? "" },
-                    set: { setDestination(to: $0) }
-                )) {
-                    Text("None").tag("")
-                    ForEach(destinationRooms, id: \.id) { r in
-                        Text(fullLabel(r)).tag(r.id)
-                    }
-                }
-            }
-
-            Section("Tags") {
-                ForEach(BoxTag.allCases, id: \.self) { tag in
-                    Toggle(tag.label, isOn: Binding(
-                        get: { box.tags.contains(tag) },
-                        set: { on in toggleTag(tag, on: on) }
-                    ))
-                }
-            }
-
-            Section("Details") {
-                HStack {
-                    Text("Weight (lbs)")
-                    Spacer()
-                    TextField("Optional", value: $box.weightLbsActual, format: .number)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(maxWidth: 120)
-                }
-                TextField("Notes", text: Binding(
-                    get: { box.notes ?? "" },
-                    set: { box.notes = $0.isEmpty ? nil : $0 }
-                ), axis: .vertical)
-                .lineLimit(3...6)
-            }
-
-            if !labelAtTop { labelSection }
-
-            Section {
-                Button(role: .destructive) {
-                    let removed = box
-                    removed.deletedAt = Date()
-                    removed.updatedAt = Date()
-                    try? context.save()
-                    deleted = true
-                    dismiss()
-                    UndoToastCenter.shared.show(message: "Box \(removed.shortCode) removed") {
-                        removed.deletedAt = nil
-                        removed.updatedAt = Date()
-                        try? context.save()
-                    }
-                } label: {
-                    Label("Delete box", systemImage: "trash")
-                }
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                PaktBadge(box.status.label, tone: box.status.tone)
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(Color.paktBackground)
-        .navigationTitle(box.shortCode)
-        .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingAddItems) {
             BoxItemPickerSheet(box: box).presentationDetents([.large])
         }
@@ -211,8 +75,8 @@ struct BoxDetailView: View {
             titleVisibility: .visible
         ) {
             Button("Remove", role: .destructive) {
-                if let offsets = pendingRemoval {
-                    confirmedRemoveItems(at: offsets)
+                if let target = pendingRemoval {
+                    confirmedRemove(boxItem: target)
                 }
                 pendingRemoval = nil
             }
@@ -220,34 +84,329 @@ struct BoxDetailView: View {
         } message: {
             Text("The item stays in your inventory — only its placement in this box is removed.")
         }
+        .confirmationDialog(
+            "Delete this box?",
+            isPresented: $showingDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) { performDelete() }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 
-    @ViewBuilder private var labelSection: some View {
-        Section("Label") {
-            if let img = LabelRenderer.image(for: box) {
-                Image(uiImage: img)
-                    .resizable()
-                    .aspectRatio(472.0 / 354.0, contentMode: .fit)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: PaktRadius.md))
-                    .listRowInsets(EdgeInsets(top: PaktSpace.s2, leading: PaktSpace.s3, bottom: PaktSpace.s2, trailing: PaktSpace.s3))
-            } else {
-                Text("Label preview unavailable")
-                    .font(.pakt(.small))
-                    .foregroundStyle(Color.paktMutedForeground)
-            }
-            Button {
-                saveLabelToPhotos()
-            } label: {
-                Label("Save label to Photos", systemImage: "arrow.down.to.line")
+    // MARK: - Hero
+
+    private var heroHeader: some View {
+        PaktHeroHeader(
+            eyebrow: "Box",
+            title: box.shortCode,
+            subtitle: heroSubtitle,
+            accent: statusAccent,
+            titleStyle: .hero
+        ) {
+            Image(paktIcon: "box")
+                .font(.system(size: 32, weight: .medium))
+                .foregroundStyle(statusAccent)
+                .frame(width: 60, height: 60)
+                .background(
+                    RoundedRectangle(cornerRadius: PaktRadius.xl, style: .continuous)
+                        .fill(statusAccent.opacity(0.14))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: PaktRadius.xl, style: .continuous)
+                        .strokeBorder(statusAccent.opacity(0.35), lineWidth: 1)
+                )
+        }
+    }
+
+    private var heroSubtitle: String {
+        let type = box.boxType?.label ?? "No type"
+        let dest = box.destinationRoom?.label ?? "No destination"
+        return "\(type)  •  \(dest)"
+    }
+
+    private var heroActions: some View {
+        PaktSurface(accent: statusAccent, padding: PaktSpace.s4) {
+            VStack(alignment: .leading, spacing: PaktSpace.s3) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(box.status.label.uppercased())
+                        .font(.pakt(.small))
+                        .tracking(1.0)
+                        .foregroundStyle(statusAccent)
+                    Spacer()
+                    if let next = box.status.nextStatus {
+                        Text("Next: \(next.label)")
+                            .font(.pakt(.small))
+                            .foregroundStyle(Color.paktMutedForeground)
+                    }
+                }
+                BoxStatusTrack(current: box.status)
+                HStack(spacing: PaktSpace.s2) {
+                    PaktButton(variant: .outline, action: { step(backwards: true) }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .disabled(box.status.previousStatus == nil)
+                    .opacity(box.status.previousStatus == nil ? 0.5 : 1)
+
+                    if let next = box.status.nextStatus {
+                        PaktButton(action: { advance(to: next) }) {
+                            HStack(spacing: 4) {
+                                Text("Advance to \(next.label)")
+                                Image(systemName: "chevron.right")
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
             }
         }
     }
 
+    // MARK: - Surfaces
+
+    private var contentsSurface: some View {
+        PaktSurface(title: "Contents", icon: "package-open", accent: .paktStorage) {
+            VStack(alignment: .leading, spacing: 0) {
+                if #available(iOS 17.0, *), !liveItems.isEmpty {
+                    TipView(swipeTip)
+                        .padding(.bottom, PaktSpace.s2)
+                }
+                if liveItems.isEmpty {
+                    Text("No items yet.")
+                        .font(.pakt(.small))
+                        .foregroundStyle(Color.paktMutedForeground)
+                        .padding(.vertical, PaktSpace.s2)
+                } else {
+                    ForEach(Array(liveItems.enumerated()), id: \.element.id) { idx, bi in
+                        if idx > 0 {
+                            Rectangle()
+                                .fill(Color.paktBorder.opacity(0.6))
+                                .frame(height: 1)
+                                .padding(.vertical, 4)
+                        }
+                        contentRow(boxItem: bi)
+                    }
+                }
+
+                HStack(spacing: PaktSpace.s2) {
+                    PaktButton(variant: .outline, action: { showingAddItems = true }) {
+                        HStack(spacing: 4) {
+                            Image(paktIcon: "tray.full")
+                            Text("From inventory")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    PaktButton(variant: .outline, action: { showingNewItem = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "sparkles")
+                            Text("New item")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.top, PaktSpace.s3)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func contentRow(boxItem bi: BoxItem) -> some View {
+        if let item = bi.item {
+            HStack(spacing: PaktSpace.s3) {
+                Text(item.name)
+                    .font(.pakt(.body))
+                    .foregroundStyle(Color.paktForeground)
+                Spacer()
+                Text("×\(bi.quantity)")
+                    .font(.pakt(.small).monospacedDigit())
+                    .foregroundStyle(Color.paktMutedForeground)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color.paktMuted))
+                Button {
+                    pendingRemoval = bi
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Color.paktMutedForeground)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Remove \(item.name)")
+            }
+            .padding(.vertical, 6)
+        }
+    }
+
+    private var typeAndRoomsSurface: some View {
+        PaktSurface(title: "Placement", icon: "home", accent: .paktMoving) {
+            PaktFieldStack {
+                PaktField("Box type") {
+                    Picker("Box type", selection: Binding(
+                        get: { box.boxType?.id ?? "" },
+                        set: { setType(to: $0) }
+                    )) {
+                        ForEach(availableBoxTypes, id: \.id) { t in
+                            Text(t.label).tag(t.id)
+                        }
+                    }
+                    .labelsHidden()
+                    .tint(Color.paktForeground)
+                }
+                PaktField("From") {
+                    Picker("Source room", selection: Binding(
+                        get: { box.sourceRoom?.id ?? "" },
+                        set: { setSource(to: $0) }
+                    )) {
+                        Text("None").tag("")
+                        ForEach(originRooms, id: \.id) { r in
+                            Text(fullLabel(r)).tag(r.id)
+                        }
+                    }
+                    .labelsHidden()
+                    .tint(Color.paktForeground)
+                }
+                PaktField("To") {
+                    Picker("Destination", selection: Binding(
+                        get: { box.destinationRoom?.id ?? "" },
+                        set: { setDestination(to: $0) }
+                    )) {
+                        Text("None").tag("")
+                        ForEach(destinationRooms, id: \.id) { r in
+                            Text(fullLabel(r)).tag(r.id)
+                        }
+                    }
+                    .labelsHidden()
+                    .tint(Color.paktForeground)
+                }
+            }
+        }
+    }
+
+    private var tagsSurface: some View {
+        PaktSurface(title: "Tags", icon: "tag", accent: .paktDonate) {
+            FlowLayout(spacing: 8, lineSpacing: 8) {
+                ForEach(BoxTag.allCases, id: \.self) { tag in
+                    let on = box.tags.contains(tag)
+                    Button { toggleTag(tag, on: !on) } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: on ? "checkmark" : "plus")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text(tag.label)
+                                .font(.pakt(.small))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .foregroundStyle(on ? Color.paktPrimaryForeground : Color.paktForeground)
+                        .background(
+                            Capsule().fill(on ? Color.paktDonate : Color.paktMuted)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private var detailsSurface: some View {
+        PaktSurface(title: "Details", icon: "file-text") {
+            PaktFieldStack {
+                PaktField("Weight (lbs)") {
+                    TextField("Optional", value: $box.weightLbsActual, format: .number)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 120)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Notes")
+                        .font(.pakt(.bodyMedium))
+                        .foregroundStyle(Color.paktForeground)
+                    TextField("Optional", text: Binding(
+                        get: { box.notes ?? "" },
+                        set: { box.notes = $0.isEmpty ? nil : $0 }
+                    ), axis: .vertical)
+                    .lineLimit(3...6)
+                    .font(.pakt(.body))
+                    .foregroundStyle(Color.paktForeground)
+                    .padding(PaktSpace.s2)
+                    .background(
+                        RoundedRectangle(cornerRadius: PaktRadius.md, style: .continuous)
+                            .fill(Color.paktMuted)
+                    )
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+
+    @ViewBuilder private var labelSurface: some View {
+        PaktSurface(title: "Label", icon: "qr-code", accent: .paktPrimary) {
+            VStack(alignment: .leading, spacing: PaktSpace.s3) {
+                if let img = LabelRenderer.image(for: box) {
+                    Image(uiImage: img)
+                        .resizable()
+                        .aspectRatio(472.0 / 354.0, contentMode: .fit)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: PaktRadius.md))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: PaktRadius.md)
+                                .strokeBorder(Color.paktBorder, lineWidth: 1)
+                        )
+                } else {
+                    Text("Label preview unavailable")
+                        .font(.pakt(.small))
+                        .foregroundStyle(Color.paktMutedForeground)
+                }
+                PaktButton(variant: .outline, action: saveLabelToPhotos) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.down.to.line")
+                        Text("Save label to Photos")
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+    }
+
+    private var deleteButton: some View {
+        PaktButton(variant: .destructive, action: { showingDeleteConfirm = true }) {
+            HStack(spacing: 4) {
+                Image(systemName: "trash")
+                Text("Delete box")
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.top, PaktSpace.s2)
+    }
+
+    // MARK: - Computed
+
+    private var liveItems: [BoxItem] {
+        (box.boxItems ?? []).filter { $0.item?.deletedAt == nil }
+    }
+
+    private var statusAccent: Color {
+        switch box.status {
+        case .empty:     return .paktMutedForeground
+        case .packing:   return .paktPrimary
+        case .sealed:    return .paktStorage
+        case .loaded:    return .paktStorage
+        case .inTransit: return .paktMoving
+        case .delivered: return .paktMoving
+        case .unpacked:  return .paktAccent
+        }
+    }
+
+    // MARK: - Actions
+
     private func saveLabelToPhotos() {
         guard let image = LabelRenderer.image(for: box) else { return }
         UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         withAnimation { showLabelSavedToast = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             withAnimation { showLabelSavedToast = false }
@@ -262,7 +421,19 @@ struct BoxDetailView: View {
         try? context.save()
     }
 
-    // MARK: - Helpers
+    private func performDelete() {
+        let removed = box
+        removed.deletedAt = Date()
+        removed.updatedAt = Date()
+        try? context.save()
+        deleted = true
+        dismiss()
+        UndoToastCenter.shared.show(message: "Box \(removed.shortCode) removed") {
+            removed.deletedAt = nil
+            removed.updatedAt = Date()
+            try? context.save()
+        }
+    }
 
     private var availableBoxTypes: [BoxType] {
         (box.move?.boxTypes ?? []).filter { $0.deletedAt == nil }
@@ -283,8 +454,6 @@ struct BoxDetailView: View {
         r.parentRoom.map { "\($0.label) › \(r.label)" } ?? r.label
     }
 
-    // MARK: - Mutations
-
     private func setType(to id: String) {
         box.boxType = availableBoxTypes.first { $0.id == id }
     }
@@ -302,13 +471,11 @@ struct BoxDetailView: View {
         if on, !current.contains(tag) { current.append(tag) }
         if !on { current.removeAll { $0 == tag } }
         box.tags = current
+        UISelectionFeedbackGenerator().selectionChanged()
     }
 
-    private func confirmedRemoveItems(at offsets: IndexSet) {
-        let liveItems = (box.boxItems ?? []).filter { $0.item?.deletedAt == nil }
-        for index in offsets where index < liveItems.count {
-            context.delete(liveItems[index])
-        }
+    private func confirmedRemove(boxItem: BoxItem) {
+        context.delete(boxItem)
         try? context.save()
         DeletionTipEvents.userDidSwipeToDelete()
     }
@@ -316,7 +483,12 @@ struct BoxDetailView: View {
     private func step(backwards: Bool) {
         let target = backwards ? box.status.previousStatus : box.status.nextStatus
         guard let t = target else { return }
-        box.status = t
+        advance(to: t)
+    }
+
+    private func advance(to next: BoxStatus) {
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        box.status = next
         box.updatedAt = Date()
         try? context.save()
     }

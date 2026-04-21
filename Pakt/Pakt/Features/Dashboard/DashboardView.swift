@@ -14,20 +14,15 @@ struct DashboardView: View {
     @State private var showingParticipants = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: PaktSpace.s4) {
-                header
-                collabBanner
-                quickActions
-                countsGrid
-                predictionsCard
-                Spacer(minLength: 80)
-            }
-            .padding(PaktSpace.s4)
+        PaktScreen(accent: .paktPrimary) {
+            heroHeader
+            collabBanner
+            statsStrip
+            quickActions
+            predictionsCard
         }
-        .background(Color.paktBackground)
-        .navigationTitle(move.name)
-        .navigationBarTitleDisplayMode(.large)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
         .task(id: move.id) {
             // Pull the latest state for this shared Move whenever the user
@@ -74,10 +69,12 @@ struct DashboardView: View {
             Button {
                 showingParticipants = true
             } label: {
-                PaktCard {
+                PaktSurface(accent: .paktAccent, padding: PaktSpace.s3) {
                     HStack(spacing: PaktSpace.s3) {
                         Image(systemName: "person.2.fill")
                             .foregroundStyle(Color.paktPrimary)
+                            .frame(width: 36, height: 36)
+                            .background(Circle().fill(Color.paktPrimary.opacity(0.14)))
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Shared move")
                                 .font(.pakt(.bodyMedium))
@@ -94,6 +91,68 @@ struct DashboardView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private var heroHeader: some View {
+        PaktHeroHeader(
+            eyebrow: statusLabel(move.status),
+            title: move.name,
+            subtitle: heroSubtitle,
+            accent: .paktPrimary,
+            titleStyle: .hero
+        )
+    }
+
+    private var heroSubtitle: String {
+        var parts: [String] = []
+        if let date = move.plannedMoveDate {
+            parts.append("Moving \(date.formatted(date: .abbreviated, time: .omitted))")
+        }
+        if let dest = move.destinationAddress, !dest.isEmpty {
+            parts.append("→ \(dest)")
+        }
+        if parts.isEmpty { parts.append("Draft move") }
+        return parts.joined(separator: "  ·  ")
+    }
+
+    private var statsStrip: some View {
+        let live = liveItems
+        let movingCount = live.filter { $0.disposition == .moving }.count
+        let undecidedCount = live.filter { $0.disposition == .undecided }.count
+        let boxCount = liveBoxes.count
+        return PaktSurface(accent: .paktPrimary, padding: PaktSpace.s3) {
+            HStack(alignment: .top, spacing: 0) {
+                statTile(label: "Items", value: live.count, tint: .paktPrimary)
+                divider
+                statTile(label: "Moving", value: movingCount, tint: .paktMoving)
+                divider
+                statTile(label: "Undecided", value: undecidedCount, tint: .paktUndecided)
+                divider
+                statTile(label: "Boxes", value: boxCount, tint: .paktStorage)
+            }
+        }
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Color.paktBorder)
+            .frame(width: 1, height: 36)
+            .padding(.vertical, 4)
+    }
+
+    private func statTile(label: String, value: Int, tint: Color) -> some View {
+        VStack(spacing: 2) {
+            Text("\(value)")
+                .font(.pakt(.title).monospacedDigit())
+                .foregroundStyle(tint)
+                .contentTransition(.numericText(value: Double(value)))
+                .animation(PaktMotion.standard, value: value)
+            Text(label.uppercased())
+                .font(.pakt(.small))
+                .tracking(0.6)
+                .foregroundStyle(Color.paktMutedForeground)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     @ToolbarContentBuilder
@@ -166,100 +225,87 @@ struct DashboardView: View {
     }
 
     private var quickActions: some View {
-        VStack(spacing: PaktSpace.s2) {
-            NavigationLink {
-                RoomListView(move: move)
-            } label: {
-                QuickActionCard(
-                    icon: "package-open",
-                    title: "Inventory",
-                    subtitle: "Rooms, items, and photos"
-                )
-            }
-            .buttonStyle(.plain)
+        let items = liveItems
+        let itemCount = items.count
+        let undecided = items.filter { $0.disposition == .undecided }.count
+        let boxCount = liveBoxes.count
+        let pendingTasks = (move.checklist ?? []).filter { !$0.isDone }.count
 
-            NavigationLink {
-                TriageDeckView(move: move)
-            } label: {
-                QuickActionCard(
-                    icon: "shuffle",
-                    title: "Triage",
-                    subtitle: undecidedCount == 0
-                        ? "Nothing undecided right now"
-                        : "\(undecidedCount) item\(undecidedCount == 1 ? "" : "s") to decide"
-                )
+        return VStack(alignment: .leading, spacing: PaktSpace.s2) {
+            HStack(spacing: 8) {
+                Rectangle()
+                    .fill(Color.paktPrimary)
+                    .frame(width: 14, height: 2)
+                    .clipShape(Capsule())
+                Text("QUICK ACTIONS")
+                    .font(.pakt(.small))
+                    .tracking(1.2)
+                    .foregroundStyle(Color.paktPrimary)
             }
-            .buttonStyle(.plain)
-            .disabled(undecidedCount == 0)
-            .opacity(undecidedCount == 0 ? 0.5 : 1)
 
-            NavigationLink {
-                BoxesListView(move: move)
-            } label: {
-                QuickActionCard(
-                    icon: "box",
-                    title: "Boxes",
-                    subtitle: liveBoxes.isEmpty
-                        ? "Create your first box"
-                        : "\(liveBoxes.count) box\(liveBoxes.count == 1 ? "" : "es") in play"
-                )
+            LazyVGrid(columns: [.init(.flexible(), spacing: PaktSpace.s2), .init(.flexible(), spacing: PaktSpace.s2)], spacing: PaktSpace.s2) {
+                NavigationLink { RoomListView(move: move) } label: {
+                    QuickActionTile(icon: "package-open", title: "Inventory",
+                                    subtitle: "\(itemCount) item\(itemCount == 1 ? "" : "s")",
+                                    accent: .paktPrimary,
+                                    count: itemCount)
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink { TriageDeckView(move: move) } label: {
+                    QuickActionTile(icon: "shuffle", title: "Triage",
+                                    subtitle: undecided == 0 ? "All sorted" : "\(undecided) to decide",
+                                    accent: .paktDonate,
+                                    count: undecided > 0 ? undecided : nil)
+                }
+                .buttonStyle(.plain)
+                .disabled(undecided == 0)
+                .opacity(undecided == 0 ? 0.5 : 1)
+
+                NavigationLink { BoxesListView(move: move) } label: {
+                    QuickActionTile(icon: "box", title: "Boxes",
+                                    subtitle: liveBoxes.isEmpty ? "Create your first" : "\(boxCount) in play",
+                                    accent: .paktStorage,
+                                    count: boxCount > 0 ? boxCount : nil)
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink { ChecklistView(move: move) } label: {
+                    QuickActionTile(icon: "check-circle", title: "Checklist",
+                                    subtitle: checklistSubtitle,
+                                    accent: .paktMoving,
+                                    count: pendingTasks > 0 ? pendingTasks : nil)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
-            NavigationLink {
-                SearchView(move: move)
-            } label: {
-                QuickActionCard(
-                    icon: "search",
-                    title: "Search",
-                    subtitle: "Find any item by name or room"
-                )
+            HStack(spacing: PaktSpace.s2) {
+                NavigationLink { SearchView(move: move) } label: {
+                    QuickActionBar(icon: "search", title: "Search", subtitle: "Find any item", accent: .paktMutedForeground)
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink { ScanRouterView(move: move) } label: {
+                    QuickActionBar(icon: "scan-line", title: "Scan", subtitle: "Point the camera", accent: .paktSold)
+                }
+                .buttonStyle(.plain)
+                .disabled(liveBoxes.isEmpty)
+                .opacity(liveBoxes.isEmpty ? 0.5 : 1)
             }
-            .buttonStyle(.plain)
 
-            NavigationLink {
-                ChecklistView(move: move)
-            } label: {
-                QuickActionCard(
-                    icon: "check-circle",
-                    title: "Checklist",
-                    subtitle: checklistSubtitle
-                )
-            }
-            .buttonStyle(.plain)
-
-            NavigationLink {
-                ScanRouterView(move: move)
-            } label: {
-                QuickActionCard(
-                    icon: "scan-line",
-                    title: "Scan",
-                    subtitle: "Point the camera at a label"
-                )
-            }
-            .buttonStyle(.plain)
-            .disabled(liveBoxes.isEmpty)
-            .opacity(liveBoxes.isEmpty ? 0.5 : 1)
-
-            NavigationLink {
-                LabelsView(move: move)
-            } label: {
-                QuickActionCard(
+            NavigationLink { LabelsView(move: move) } label: {
+                QuickActionBar(
                     icon: "qr-code",
                     title: "Labels",
-                    subtitle: liveBoxes.isEmpty
-                        ? "Labels appear after you create boxes"
-                        : "Preview, save, or share labels"
+                    subtitle: liveBoxes.isEmpty ? "After you create boxes" : "Preview, save, share",
+                    accent: .paktPrimary,
+                    count: liveBoxes.isEmpty ? nil : boxCount
                 )
             }
             .buttonStyle(.plain)
             .disabled(liveBoxes.isEmpty)
             .opacity(liveBoxes.isEmpty ? 0.5 : 1)
         }
-    }
-
-    private var undecidedCount: Int {
-        liveItems.filter { $0.disposition == .undecided }.count
     }
 
     private var checklistSubtitle: String {
@@ -275,76 +321,58 @@ struct DashboardView: View {
 
     // MARK: - Sections
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: PaktSpace.s2) {
-            if let date = move.plannedMoveDate {
-                Text("Moving \(date.formatted(date: .long, time: .omitted))")
-                    .font(.pakt(.body))
-                    .foregroundStyle(Color.paktMutedForeground)
-            }
-            if let origin = move.originAddress, !origin.isEmpty {
-                Text("From \(origin)")
-                    .font(.pakt(.small))
-                    .foregroundStyle(Color.paktMutedForeground)
-            }
-            if let dest = move.destinationAddress, !dest.isEmpty {
-                Text("To \(dest)")
-                    .font(.pakt(.small))
-                    .foregroundStyle(Color.paktMutedForeground)
-            }
-        }
-    }
-
-    private var countsGrid: some View {
-        let live = liveItems
-        return LazyVGrid(columns: [.init(.flexible()), .init(.flexible())], spacing: PaktSpace.s3) {
-            StatCard(title: "Items",     value: "\(live.count)")
-            StatCard(title: "Moving",    value: "\(live.filter { $0.disposition == .moving }.count)")
-            StatCard(title: "Undecided", value: "\(live.filter { $0.disposition == .undecided }.count)")
-            StatCard(title: "Boxes",     value: "\(liveBoxes.count)")
-        }
-    }
-
     private var predictionsCard: some View {
         let rec = truckRecommendation
         let counts = boxCounts
-        return PaktCard {
+        return PaktSurface(title: "Predicted packing", icon: "truck", accent: .paktMoving) {
             VStack(alignment: .leading, spacing: PaktSpace.s3) {
-                Text("Predicted packing").font(.pakt(.heading))
                 if counts.totalBoxCount == 0 {
                     Text("Add items to see predicted box counts.")
                         .font(.pakt(.small))
                         .foregroundStyle(Color.paktMutedForeground)
                 } else {
-                    ForEach(RecommendedBoxType.allCases.filter { $0 != .none }, id: \.self) { type in
-                        let n = counts.boxesByType[type] ?? 0
-                        if n > 0 {
-                            HStack {
-                                Text(label(for: type)).font(.pakt(.body))
-                                    .foregroundStyle(Color.paktForeground)
-                                Spacer()
-                                PaktBadge("\(n)", tone: .secondary)
+                    PaktFieldStack {
+                        ForEach(RecommendedBoxType.allCases.filter { $0 != .none }, id: \.self) { type in
+                            let n = counts.boxesByType[type] ?? 0
+                            if n > 0 {
+                                PaktField(label(for: type)) {
+                                    Text("\(n)")
+                                        .font(.pakt(.bodyMedium).monospacedDigit())
+                                        .foregroundStyle(Color.paktPrimary)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 2)
+                                        .background(Capsule().fill(Color.paktPrimary.opacity(0.14)))
+                                }
                             }
                         }
                     }
                 }
 
-                Divider().background(Color.paktBorder)
+                Rectangle().fill(Color.paktBorder.opacity(0.6)).frame(height: 1)
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text("Truck size").font(.pakt(.bodyMedium))
                             .foregroundStyle(Color.paktForeground)
                         Spacer()
-                        PaktBadge(rec.size.rawValue, tone: .default)
+                        Text(rec.size.rawValue)
+                            .font(.pakt(.small))
+                            .foregroundStyle(Color.paktPrimaryForeground)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Color.paktPrimary))
                     }
                     Text(rec.note)
                         .font(.pakt(.small))
                         .foregroundStyle(Color.paktMutedForeground)
                     if rec.heavyItemCount > 0 {
-                        Text("\(rec.heavyItemCount) heavy item\(rec.heavyItemCount == 1 ? "" : "s") — plan for movers.")
-                            .font(.pakt(.small))
-                            .foregroundStyle(Color.paktDestructive)
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 10))
+                            Text("\(rec.heavyItemCount) heavy item\(rec.heavyItemCount == 1 ? "" : "s") — plan for movers.")
+                        }
+                        .font(.pakt(.small))
+                        .foregroundStyle(Color.paktDestructive)
                     }
                 }
             }
@@ -396,48 +424,88 @@ struct DashboardView: View {
     }
 }
 
-private struct QuickActionCard: View {
+private struct QuickActionTile: View {
     let icon: String
     let title: String
     let subtitle: String
+    let accent: Color
+    var count: Int? = nil
 
     var body: some View {
-        PaktCard {
-            HStack {
-                Image(paktIcon: icon)
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(Color.paktPrimary)
-                    .frame(width: 44, height: 44)
-                    .background(RoundedRectangle(cornerRadius: PaktRadius.md)
-                        .fill(Color.paktPrimary.opacity(0.12)))
+        PaktSurface(accent: accent, padding: PaktSpace.s3) {
+            VStack(alignment: .leading, spacing: PaktSpace.s2) {
+                HStack(alignment: .top) {
+                    Image(paktIcon: icon)
+                        .font(.system(size: 22, weight: .medium))
+                        .foregroundStyle(accent)
+                        .frame(width: 40, height: 40)
+                        .background(
+                            RoundedRectangle(cornerRadius: PaktRadius.md, style: .continuous)
+                                .fill(accent.opacity(0.14))
+                        )
+                    Spacer()
+                    if let count {
+                        Text("\(count)")
+                            .font(.pakt(.bodyMedium).monospacedDigit())
+                            .foregroundStyle(accent)
+                            .contentTransition(.numericText(value: Double(count)))
+                            .animation(PaktMotion.standard, value: count)
+                    }
+                }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(title).font(.pakt(.bodyMedium))
+                    Text(title)
+                        .font(.pakt(.bodyMedium))
+                        .foregroundStyle(Color.paktForeground)
+                    Text(subtitle)
+                        .font(.pakt(.small))
+                        .foregroundStyle(Color.paktMutedForeground)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 100, alignment: .topLeading)
+        }
+    }
+}
+
+private struct QuickActionBar: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let accent: Color
+    var count: Int? = nil
+
+    var body: some View {
+        PaktSurface(accent: accent, padding: PaktSpace.s3) {
+            HStack(spacing: PaktSpace.s3) {
+                Image(paktIcon: icon)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(accent)
+                    .frame(width: 34, height: 34)
+                    .background(
+                        RoundedRectangle(cornerRadius: PaktRadius.md, style: .continuous)
+                            .fill(accent.opacity(0.14))
+                    )
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.pakt(.bodyMedium))
                         .foregroundStyle(Color.paktForeground)
                     Text(subtitle)
                         .font(.pakt(.small))
                         .foregroundStyle(Color.paktMutedForeground)
                 }
                 Spacer()
+                if let count {
+                    Text("\(count)")
+                        .font(.pakt(.small).monospacedDigit())
+                        .foregroundStyle(accent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(accent.opacity(0.14)))
+                }
                 Image(paktIcon: "chevron-right")
                     .foregroundStyle(Color.paktMutedForeground)
             }
-        }
-    }
-}
-
-private struct StatCard: View {
-    let title: String
-    let value: String
-
-    var body: some View {
-        PaktCard {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.pakt(.small))
-                    .foregroundStyle(Color.paktMutedForeground)
-                Text(value).font(.pakt(.title))
-                    .foregroundStyle(Color.paktForeground)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
