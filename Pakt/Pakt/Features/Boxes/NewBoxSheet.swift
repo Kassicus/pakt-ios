@@ -99,12 +99,12 @@ struct NewBoxSheet: View {
     }
 
     private var originRooms: [Room] {
-        (move.rooms ?? []).filter { $0.kind == .origin }
+        (move.rooms ?? []).filter { $0.deletedAt == nil && $0.kind == .origin }
             .sorted { ($0.sortOrder, $0.label) < ($1.sortOrder, $1.label) }
     }
 
     private var destinationRooms: [Room] {
-        (move.rooms ?? []).filter { $0.kind == .destination }
+        (move.rooms ?? []).filter { $0.deletedAt == nil && $0.kind == .destination }
             .sorted { ($0.sortOrder, $0.label) < ($1.sortOrder, $1.label) }
     }
 

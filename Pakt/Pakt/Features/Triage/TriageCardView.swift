@@ -42,7 +42,7 @@ struct TriageCardView: View {
 
     @ViewBuilder private var photo: some View {
         ZStack(alignment: .topTrailing) {
-            if let data = item.photos?.first?.data, let ui = UIImage(data: data) {
+            if let data = item.photos?.first(where: { $0.deletedAt == nil })?.data, let ui = UIImage(data: data) {
                 Image(uiImage: ui)
                     .resizable()
                     .scaledToFill()

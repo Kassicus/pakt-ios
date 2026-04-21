@@ -62,15 +62,16 @@ struct PackView: View {
     }
 
     private var itemsSection: some View {
-        VStack(alignment: .leading, spacing: PaktSpace.s2) {
+        let liveBoxItems = (box.boxItems ?? []).filter { $0.item?.deletedAt == nil }
+        return VStack(alignment: .leading, spacing: PaktSpace.s2) {
             HStack {
                 Text("Contents").font(.pakt(.heading))
                 Spacer()
-                Text("\((box.boxItems ?? []).count)")
+                Text("\(liveBoxItems.count)")
                     .font(.pakt(.small))
                     .foregroundStyle(Color.paktMutedForeground)
             }
-            if (box.boxItems ?? []).isEmpty {
+            if liveBoxItems.isEmpty {
                 PaktCard {
                     Text("No items yet. Tap below to add some.")
                         .font(.pakt(.small))
@@ -78,7 +79,7 @@ struct PackView: View {
                 }
             } else {
                 VStack(spacing: 6) {
-                    ForEach(box.boxItems ?? [], id: \.id) { bi in
+                    ForEach(liveBoxItems, id: \.id) { bi in
                         if let item = bi.item {
                             ItemRow(item: item, quantity: bi.quantity, onRemove: {
                                 context.delete(bi)

@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import TipKit
 
 struct BoxTypesView: View {
     let move: Move
@@ -8,9 +9,15 @@ struct BoxTypesView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var editing: BoxType?
     @State private var showingNew = false
+    private let swipeTip = SwipeToDeleteBoxTypeTip()
 
     var body: some View {
         List {
+            if !visibleTypes.isEmpty, #available(iOS 17.0, *) {
+                TipView(swipeTip)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
             ForEach(visibleTypes, id: \.id) { type in
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
@@ -68,16 +75,38 @@ struct BoxTypesView: View {
 
     private func delete(at offsets: IndexSet) {
         let types = visibleTypes
+        let now = Date()
+        var removed: [BoxType] = []
+        var blocked: [BoxType] = []
         for index in offsets {
             let t = types[index]
             if usageCount(t) > 0 {
-                // Soft-delete only when unused.
+                blocked.append(t)
                 continue
             }
-            t.deletedAt = Date()
-            t.updatedAt = Date()
+            t.deletedAt = now
+            t.updatedAt = now
+            removed.append(t)
         }
         try? context.save()
+        DeletionTipEvents.userDidSwipeToDelete()
+
+        if !removed.isEmpty {
+            let message = removed.count == 1
+                ? "\"\(removed[0].label)\" removed"
+                : "\(removed.count) box types removed"
+            UndoToastCenter.shared.show(message: message) {
+                for t in removed {
+                    t.deletedAt = nil
+                    t.updatedAt = Date()
+                }
+                try? context.save()
+            }
+        } else if let first = blocked.first {
+            UndoToastCenter.shared.show(
+                message: "\"\(first.label)\" is in use and can't be removed yet"
+            )
+        }
     }
 }
 
@@ -115,6 +144,26 @@ struct EditBoxTypeSheet: View {
                     TextField("3.0", text: $volumeText)
                         .keyboardType(.decimalPad)
                 }
+                if let boxType {
+                    Section {
+                        let inUse = usageCount(for: boxType) > 0
+                        Button(role: .destructive) {
+                            remove(boxType)
+                        } label: {
+                            Label(
+                                inUse
+                                    ? "In use — can't remove yet"
+                                    : "Remove box type",
+                                systemImage: "trash"
+                            )
+                        }
+                        .disabled(inUse)
+                    } footer: {
+                        if usageCount(for: boxType) > 0 {
+                            Text("\(usageCount(for: boxType)) box\(usageCount(for: boxType) == 1 ? "" : "es") still use this type. Reassign them first to remove it.")
+                        }
+                    }
+                }
             }
             .scrollContentBackground(.hidden)
             .background(Color.paktBackground)
@@ -130,6 +179,22 @@ struct EditBoxTypeSheet: View {
                         .fontWeight(.semibold)
                 }
             }
+        }
+    }
+
+    private func usageCount(for type: BoxType) -> Int {
+        (type.move?.boxes ?? []).filter { $0.boxType?.id == type.id && $0.deletedAt == nil }.count
+    }
+
+    private func remove(_ type: BoxType) {
+        type.deletedAt = Date()
+        type.updatedAt = Date()
+        try? context.save()
+        dismiss()
+        UndoToastCenter.shared.show(message: "\"\(type.label)\" removed") {
+            type.deletedAt = nil
+            type.updatedAt = Date()
+            try? context.save()
         }
     }
 

@@ -31,6 +31,7 @@ import SwiftData
     public var statusRaw: String = MoveStatus.planning.rawValue
     public var createdAt: Date = Date()
     public var updatedAt: Date = Date()
+    public var deletedAt: Date?
 
     // Collaboration — populated once a Move is wrapped in a CKShare.
     public var isShared: Bool = false
@@ -75,10 +76,15 @@ import SwiftData
     public var sortOrder: Int = 0
     public var createdAt: Date = Date()
     public var updatedAt: Date = Date()
+    public var deletedAt: Date?
 
     public var move: Move?
     public var parentRoom: Room?
     @Relationship(deleteRule: .nullify, inverse: \Room.parentRoom) public var childRooms: [Room]?
+    @Relationship(deleteRule: .nullify, inverse: \Item.sourceRoom) public var itemsAsSource: [Item]?
+    @Relationship(deleteRule: .nullify, inverse: \Item.destinationRoom) public var itemsAsDestination: [Item]?
+    @Relationship(deleteRule: .nullify, inverse: \Box.sourceRoom) public var boxesAsSource: [Box]?
+    @Relationship(deleteRule: .nullify, inverse: \Box.destinationRoom) public var boxesAsDestination: [Box]?
 
     public var kind: RoomKind {
         get { RoomKind(rawValue: kindRaw) ?? .origin }
@@ -113,7 +119,7 @@ import SwiftData
     public var deletedAt: Date?
 
     public var move: Move?
-    @Relationship(deleteRule: .deny, inverse: \Box.boxType) public var boxes: [Box]?
+    @Relationship(deleteRule: .nullify, inverse: \Box.boxType) public var boxes: [Box]?
 
     public init(
         id: String = ShortCode.generateId(.boxType),
@@ -204,6 +210,7 @@ import SwiftData
     public var byteSize: Int?
     public var contentType: String?
     public var createdAt: Date = Date()
+    public var deletedAt: Date?
 
     public var item: Item?
 

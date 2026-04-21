@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import TipKit
 
 struct BoxDetailView: View {
     @Bindable var box: Box
@@ -10,6 +11,8 @@ struct BoxDetailView: View {
     @State private var showingAddItems = false
     @State private var showingNewItem = false
     @State private var deleted = false
+    @State private var pendingRemoval: IndexSet?
+    private let swipeTip = SwipeToRemoveBoxItemTip()
 
     var body: some View {
         Form {
@@ -48,8 +51,14 @@ struct BoxDetailView: View {
             }
 
             Section("Contents") {
-                if let items = box.boxItems, !items.isEmpty {
-                    ForEach(items, id: \.id) { bi in
+                let liveItems = (box.boxItems ?? []).filter { $0.item?.deletedAt == nil }
+                if !liveItems.isEmpty {
+                    if #available(iOS 17.0, *) {
+                        TipView(swipeTip)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                    }
+                    ForEach(liveItems, id: \.id) { bi in
                         if let item = bi.item {
                             HStack {
                                 Text(item.name).font(.pakt(.body))
@@ -60,7 +69,7 @@ struct BoxDetailView: View {
                             }
                         }
                     }
-                    .onDelete(perform: removeItems)
+                    .onDelete { offsets in pendingRemoval = offsets }
                 } else {
                     Text("No items yet.")
                         .font(.pakt(.small))
@@ -138,11 +147,17 @@ struct BoxDetailView: View {
 
             Section {
                 Button(role: .destructive) {
-                    box.deletedAt = Date()
-                    box.updatedAt = Date()
+                    let removed = box
+                    removed.deletedAt = Date()
+                    removed.updatedAt = Date()
                     try? context.save()
                     deleted = true
                     dismiss()
+                    UndoToastCenter.shared.show(message: "Box \(removed.shortCode) removed") {
+                        removed.deletedAt = nil
+                        removed.updatedAt = Date()
+                        try? context.save()
+                    }
                 } label: {
                     Label("Delete box", systemImage: "trash")
                 }
@@ -162,6 +177,24 @@ struct BoxDetailView: View {
                 onCreate: attach
             )
             .presentationDetents([.large])
+        }
+        .confirmationDialog(
+            "Remove from this box?",
+            isPresented: Binding(
+                get: { pendingRemoval != nil },
+                set: { if !$0 { pendingRemoval = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Remove", role: .destructive) {
+                if let offsets = pendingRemoval {
+                    confirmedRemoveItems(at: offsets)
+                }
+                pendingRemoval = nil
+            }
+            Button("Cancel", role: .cancel) { pendingRemoval = nil }
+        } message: {
+            Text("The item stays in your inventory — only its placement in this box is removed.")
         }
     }
 
@@ -215,12 +248,13 @@ struct BoxDetailView: View {
         box.tags = current
     }
 
-    private func removeItems(at offsets: IndexSet) {
-        guard let items = box.boxItems else { return }
-        for index in offsets {
-            context.delete(items[index])
+    private func confirmedRemoveItems(at offsets: IndexSet) {
+        let liveItems = (box.boxItems ?? []).filter { $0.item?.deletedAt == nil }
+        for index in offsets where index < liveItems.count {
+            context.delete(liveItems[index])
         }
         try? context.save()
+        DeletionTipEvents.userDidSwipeToDelete()
     }
 
     private func step(backwards: Bool) {

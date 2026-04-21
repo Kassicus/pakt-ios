@@ -181,7 +181,7 @@ private struct ResultRow: View {
 
     var body: some View {
         HStack(spacing: PaktSpace.s3) {
-            Thumbnail(photo: item.photos?.first)
+            Thumbnail(photo: item.photos?.first(where: { $0.deletedAt == nil }))
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {

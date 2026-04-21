@@ -69,9 +69,11 @@ public final class CloudKitSyncEngine {
             // `MainActor.assumeIsolated` crashes if the caller isn't already
             // MainActor-isolated, which NotificationCenter doesn't guarantee
             // under Swift 6 strict concurrency — even with queue: .main.
-            // Hopping via a Task is safe in both directions.
-            Task { @MainActor [weak self] in
-                self?.contextDidSave(note)
+            // Hopping via a Task is safe in both directions. `Notification`
+            // isn't Sendable, so we box it for the cross-isolation hop.
+            let box = UncheckedSendableBox(note)
+            Task { @MainActor [weak self, box] in
+                self?.contextDidSave(box.value)
             }
         }
 
@@ -268,7 +270,7 @@ public final class CloudKitSyncEngine {
         guard let context else { return }
         let db = collab.database(for: .participant)
 
-        var token = CloudKitChangeTokens.databaseToken(scope: .shared)
+        let token = CloudKitChangeTokens.databaseToken(scope: .shared)
         do {
             let result = try await collab.fetchDatabaseChanges(database: db, token: token)
 

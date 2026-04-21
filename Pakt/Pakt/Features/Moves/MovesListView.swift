@@ -1,14 +1,20 @@
 import SwiftData
 import SwiftUI
+import TipKit
 
 struct MovesListView: View {
     @Environment(AuthStore.self) private var auth
     @Environment(\.modelContext) private var context
-    @Query(sort: \Move.updatedAt, order: .reverse) private var moves: [Move]
+    @Query(
+        filter: #Predicate<Move> { $0.deletedAt == nil },
+        sort: \Move.updatedAt,
+        order: .reverse
+    ) private var moves: [Move]
 
     @State private var showingNewMove = false
     @State private var showingSettings = false
     @State private var showingAcceptInvite = false
+    private let swipeTip = SwipeToDeleteMoveTip()
 
     var body: some View {
         NavigationStack {
@@ -62,6 +68,11 @@ struct MovesListView: View {
             )
         } else {
             List {
+                if #available(iOS 17.0, *) {
+                    TipView(swipeTip)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
                 ForEach(moves) { move in
                     NavigationLink(value: move) {
                         MoveRow(move: move)
@@ -78,23 +89,40 @@ struct MovesListView: View {
                 DashboardView(move: move)
             }
             .confirmationDialog(
-                "Delete this move?",
+                "Remove this move?",
                 isPresented: Binding(
                     get: { pendingDeletion != nil },
                     set: { if !$0 { pendingDeletion = nil } }
                 ),
                 titleVisibility: .visible
             ) {
-                Button("Delete permanently", role: .destructive) {
+                Button("Remove", role: .destructive) {
                     if let offsets = pendingDeletion {
-                        for index in offsets { context.delete(moves[index]) }
+                        let now = Date()
+                        let removed = offsets.map { moves[$0] }
+                        for move in removed {
+                            move.deletedAt = now
+                            move.updatedAt = now
+                        }
                         try? context.save()
+                        DeletionTipEvents.userDidSwipeToDelete()
+
+                        let message = removed.count == 1
+                            ? "\"\(removed[0].name)\" removed"
+                            : "\(removed.count) moves removed"
+                        UndoToastCenter.shared.show(message: message) {
+                            for move in removed {
+                                move.deletedAt = nil
+                                move.updatedAt = Date()
+                            }
+                            try? context.save()
+                        }
                     }
                     pendingDeletion = nil
                 }
                 Button("Cancel", role: .cancel) { pendingDeletion = nil }
             } message: {
-                Text("All rooms, items, photos, and boxes for this move will be removed from every signed-in device.")
+                Text("Rooms, items, photos, and boxes stay attached but are hidden everywhere. You can undo right after, or permanently remove from device later.")
             }
         }
     }

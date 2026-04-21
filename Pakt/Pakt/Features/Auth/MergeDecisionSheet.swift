@@ -12,7 +12,7 @@ struct MergeDecisionSheet: View {
     @State private var confirmingStartFresh = false
     @State private var exportedPDFURL: URL?
 
-    @Query private var moves: [Move]
+    @Query(filter: #Predicate<Move> { $0.deletedAt == nil }) private var moves: [Move]
 
     var body: some View {
         ZStack {

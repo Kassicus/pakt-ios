@@ -48,7 +48,7 @@ struct ItemDetailView: View {
                     Picker("Source room", selection: Binding(
                         get: { item.sourceRoom?.id ?? "" },
                         set: { newId in
-                            item.sourceRoom = (move.rooms ?? []).first { $0.id == newId }
+                            item.sourceRoom = (move.rooms ?? []).first { $0.id == newId && $0.deletedAt == nil }
                         }
                     )) {
                         Text("Unassigned").tag("")
@@ -59,7 +59,7 @@ struct ItemDetailView: View {
                     Picker("Destination room", selection: Binding(
                         get: { item.destinationRoom?.id ?? "" },
                         set: { newId in
-                            item.destinationRoom = (move.rooms ?? []).first { $0.id == newId }
+                            item.destinationRoom = (move.rooms ?? []).first { $0.id == newId && $0.deletedAt == nil }
                         }
                     )) {
                         Text("Unassigned").tag("")
@@ -115,10 +115,17 @@ struct ItemDetailView: View {
 
             Section {
                 Button(role: .destructive) {
-                    item.deletedAt = Date()
+                    let removed = item
+                    removed.deletedAt = Date()
+                    removed.updatedAt = Date()
                     try? context.save()
                     deleted = true
                     dismiss()
+                    UndoToastCenter.shared.show(message: "\(removed.name) removed") {
+                        removed.deletedAt = nil
+                        removed.updatedAt = Date()
+                        try? context.save()
+                    }
                 } label: {
                     Label("Delete item", systemImage: "trash")
                 }
@@ -150,12 +157,12 @@ struct ItemDetailView: View {
     // MARK: - Helpers
 
     private func originRooms(of move: Move) -> [Room] {
-        (move.rooms ?? []).filter { $0.kind == .origin }
+        (move.rooms ?? []).filter { $0.deletedAt == nil && $0.kind == .origin }
             .sorted { ($0.sortOrder, $0.label) < ($1.sortOrder, $1.label) }
     }
 
     private func destinationRooms(of move: Move) -> [Room] {
-        (move.rooms ?? []).filter { $0.kind == .destination }
+        (move.rooms ?? []).filter { $0.deletedAt == nil && $0.kind == .destination }
             .sorted { ($0.sortOrder, $0.label) < ($1.sortOrder, $1.label) }
     }
 
@@ -211,8 +218,17 @@ private struct PhotoStrip: View {
     let item: Item
     @Environment(\.modelContext) private var context
 
+    private func removePhoto(_ photo: ItemPhoto) {
+        photo.deletedAt = Date()
+        try? context.save()
+        UndoToastCenter.shared.show(message: "Photo removed") {
+            photo.deletedAt = nil
+            try? context.save()
+        }
+    }
+
     var body: some View {
-        let photos = item.photos ?? []
+        let photos = (item.photos ?? []).filter { $0.deletedAt == nil }
         if photos.isEmpty {
             Text("No photos yet.")
                 .font(.pakt(.small))
@@ -227,14 +243,14 @@ private struct PhotoStrip: View {
                                 .clipShape(RoundedRectangle(cornerRadius: PaktRadius.md))
                                 .overlay(alignment: .topTrailing) {
                                     Button(role: .destructive) {
-                                        context.delete(photo)
-                                        try? context.save()
+                                        removePhoto(photo)
                                     } label: {
                                         Image(systemName: "xmark.circle.fill")
                                             .foregroundStyle(.white, .black.opacity(0.5))
                                             .font(.system(size: 20))
                                             .padding(4)
                                     }
+                                    .accessibilityLabel("Remove photo")
                                 }
                         }
                     }

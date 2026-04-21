@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import TipKit
 
 struct RoomDetailView: View {
     let room: Room
@@ -7,6 +8,9 @@ struct RoomDetailView: View {
     @Environment(\.modelContext) private var context
     @State private var showingAdd = false
     @State private var showingAddChild = false
+    private let swipeTip = SwipeToDeleteItemTip()
+
+    @State private var confirmRemove = false
 
     var body: some View {
         List {
@@ -32,6 +36,11 @@ struct RoomDetailView: View {
             }
 
             Section(items.isEmpty ? "" : "Items") {
+                if !items.isEmpty, #available(iOS 17.0, *) {
+                    TipView(swipeTip)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
                 ForEach(items, id: \.id) { item in
                     NavigationLink {
                         ItemDetailView(item: item)
@@ -41,6 +50,14 @@ struct RoomDetailView: View {
                     .listRowBackground(Color.paktCard)
                 }
                 .onDelete(perform: softDelete)
+            }
+
+            Section {
+                Button(role: .destructive) {
+                    confirmRemove = true
+                } label: {
+                    Label("Remove room", systemImage: "trash")
+                }
             }
         }
         .listStyle(.insetGrouped)
@@ -70,6 +87,33 @@ struct RoomDetailView: View {
             AddRoomSheet(move: room.move, side: room.kind, parent: room)
                 .presentationDetents([.medium])
         }
+        .confirmationDialog(
+            "Remove this room?",
+            isPresented: $confirmRemove,
+            titleVisibility: .visible
+        ) {
+            Button("Remove", role: .destructive) { removeRoom() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Items in this room stay in your inventory and become unassigned. Sub-rooms become top-level. You can undo right after.")
+        }
+    }
+
+    private func removeRoom() {
+        for child in childRooms {
+            child.parentRoom = nil
+            child.updatedAt = Date()
+        }
+        room.deletedAt = Date()
+        room.updatedAt = Date()
+        try? context.save()
+        let label = room.label
+        let removed = room
+        UndoToastCenter.shared.show(message: "\"\(label)\" removed") {
+            removed.deletedAt = nil
+            removed.updatedAt = Date()
+            try? context.save()
+        }
     }
 
     private var items: [Item] {
@@ -80,6 +124,7 @@ struct RoomDetailView: View {
 
     private var childRooms: [Room] {
         (room.childRooms ?? [])
+            .filter { $0.deletedAt == nil }
             .sorted { ($0.sortOrder, $0.label) < ($1.sortOrder, $1.label) }
     }
 
@@ -90,10 +135,25 @@ struct RoomDetailView: View {
     }
 
     private func softDelete(at offsets: IndexSet) {
-        for index in offsets {
-            items[index].deletedAt = Date()
+        let now = Date()
+        let removed = offsets.map { items[$0] }
+        for item in removed {
+            item.deletedAt = now
+            item.updatedAt = now
         }
         try? context.save()
+        DeletionTipEvents.userDidSwipeToDelete()
+
+        let message = removed.count == 1
+            ? "\(removed[0].name) removed"
+            : "\(removed.count) items removed"
+        UndoToastCenter.shared.show(message: message) {
+            for item in removed {
+                item.deletedAt = nil
+                item.updatedAt = Date()
+            }
+            try? context.save()
+        }
     }
 }
 

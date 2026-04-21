@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import TipKit
 
 struct SettingsView: View {
     @Environment(AuthStore.self) private var auth
@@ -169,6 +170,11 @@ struct SettingsView: View {
                 dismiss()
             } label: {
                 Label("Replay intro", systemImage: "sparkles")
+            }
+            Button {
+                try? Tips.resetDatastore()
+            } label: {
+                Label("Reset tips", systemImage: "lightbulb")
             }
             if isSignedIn {
                 Button(role: .destructive) { confirmSignOut = true } label: {

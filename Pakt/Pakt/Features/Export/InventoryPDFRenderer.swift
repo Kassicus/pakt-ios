@@ -94,7 +94,7 @@ enum InventoryPDFRenderer {
     private static func drawRoomsAndItems(ctx: UIGraphicsPDFRendererContext, cursor: CGFloat, move: Move) -> CGFloat {
         var y = cursor
         let live = (move.items ?? []).filter { $0.deletedAt == nil }
-        let rooms = (move.rooms ?? []).filter { $0.kind == .origin }
+        let rooms = (move.rooms ?? []).filter { $0.deletedAt == nil && $0.kind == .origin }
             .sorted { ($0.sortOrder, $0.label) < ($1.sortOrder, $1.label) }
 
         y = ensureSpace(ctx: ctx, cursor: y, needed: 40)

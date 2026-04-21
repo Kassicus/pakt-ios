@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import TipKit
 
 struct BoxesListView: View {
     let move: Move
@@ -7,6 +8,7 @@ struct BoxesListView: View {
     @Environment(\.modelContext) private var context
     @State private var showingNewBox = false
     @State private var showingBoxTypes = false
+    private let swipeTip = SwipeToDeleteBoxTip()
 
     var body: some View {
         Group {
@@ -18,6 +20,11 @@ struct BoxesListView: View {
                 }
             } else {
                 List {
+                    if #available(iOS 17.0, *) {
+                        TipView(swipeTip)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                    }
                     ForEach(statusGroups, id: \.status) { group in
                         Section(header: sectionHeader(group)) {
                             ForEach(group.boxes, id: \.id) { box in
@@ -98,11 +105,25 @@ struct BoxesListView: View {
     }
 
     private func softDelete(group: StatusGroup, at offsets: IndexSet) {
-        for index in offsets {
-            group.boxes[index].deletedAt = Date()
-            group.boxes[index].updatedAt = Date()
+        let now = Date()
+        let removed = offsets.map { group.boxes[$0] }
+        for box in removed {
+            box.deletedAt = now
+            box.updatedAt = now
         }
         try? context.save()
+        DeletionTipEvents.userDidSwipeToDelete()
+
+        let message = removed.count == 1
+            ? "Box \(removed[0].shortCode) removed"
+            : "\(removed.count) boxes removed"
+        UndoToastCenter.shared.show(message: message) {
+            for box in removed {
+                box.deletedAt = nil
+                box.updatedAt = Date()
+            }
+            try? context.save()
+        }
     }
 }
 
@@ -156,7 +177,9 @@ private struct BoxRow: View {
     }
 
     private var itemCount: Int {
-        (box.boxItems ?? []).reduce(0) { $0 + $1.quantity }
+        (box.boxItems ?? [])
+            .filter { $0.item?.deletedAt == nil }
+            .reduce(0) { $0 + $1.quantity }
     }
 }
 

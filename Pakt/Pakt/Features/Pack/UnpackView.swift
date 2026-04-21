@@ -47,16 +47,17 @@ struct UnpackView: View {
     }
 
     private var itemsSection: some View {
-        VStack(alignment: .leading, spacing: PaktSpace.s2) {
+        let liveBoxItems = (box.boxItems ?? []).filter { $0.item?.deletedAt == nil }
+        return VStack(alignment: .leading, spacing: PaktSpace.s2) {
             HStack {
                 Text("Contents").font(.pakt(.heading))
                 Spacer()
-                Text("\(placedIds.count) / \((box.boxItems ?? []).count)")
+                Text("\(placedIds.count) / \(liveBoxItems.count)")
                     .font(.pakt(.small))
                     .foregroundStyle(Color.paktMutedForeground)
             }
             VStack(spacing: 6) {
-                ForEach(box.boxItems ?? [], id: \.id) { bi in
+                ForEach(liveBoxItems, id: \.id) { bi in
                     if let item = bi.item {
                         Button { toggle(item) } label: {
                             ItemRow(item: item, placed: placedIds.contains(item.id))
@@ -65,7 +66,7 @@ struct UnpackView: View {
                     }
                 }
             }
-            if (box.boxItems ?? []).isEmpty {
+            if liveBoxItems.isEmpty {
                 PaktCard {
                     Text("This box was packed empty.")
                         .font(.pakt(.small))

@@ -71,15 +71,15 @@ struct RoomListView: View {
 
     private func topLevelRooms(for side: RoomKind) -> [Room] {
         (move.rooms ?? [])
-            .filter { $0.kind == side && $0.parentRoom == nil }
+            .filter { $0.deletedAt == nil && $0.kind == side && $0.parentRoom == nil }
             .sorted { ($0.sortOrder, $0.label) < ($1.sortOrder, $1.label) }
     }
 
     private func mirror() {
         let existingDestLabels = Set(
-            (move.rooms ?? []).filter { $0.kind == .destination }.map(\.label)
+            (move.rooms ?? []).filter { $0.deletedAt == nil && $0.kind == .destination }.map(\.label)
         )
-        let originRooms = (move.rooms ?? []).filter { $0.kind == .origin }
+        let originRooms = (move.rooms ?? []).filter { $0.deletedAt == nil && $0.kind == .origin }
         // 1st pass — top-level rooms; remember originId → new destination room for closet mapping.
         var idMap: [String: Room] = [:]
         for origin in originRooms where origin.parentRoom == nil {
@@ -176,6 +176,7 @@ private struct RoomRow: View {
 
     private var children: [Room] {
         (room.childRooms ?? [])
+            .filter { $0.deletedAt == nil }
             .sorted { ($0.sortOrder, $0.label) < ($1.sortOrder, $1.label) }
     }
 
@@ -193,8 +194,14 @@ private struct RoomRow: View {
             child.parentRoom = nil
             child.updatedAt = Date()
         }
-        context.delete(room)
+        room.deletedAt = Date()
+        room.updatedAt = Date()
         try? context.save()
+        UndoToastCenter.shared.show(message: "\"\(room.label)\" removed") {
+            room.deletedAt = nil
+            room.updatedAt = Date()
+            try? context.save()
+        }
     }
 }
 

@@ -14,29 +14,29 @@ public enum IDPrefix: String, Sendable, CaseIterable {
 }
 
 public enum ShortCode {
-    private static let safeAlphabet = Array("23456789ABCDEFGHJKLMNPQRSTUVWXYZ")
-    private static let standardAlphabet = Array("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-    private static let inviteAlphabet = standardAlphabet
+    nonisolated private static let safeAlphabet = Array("23456789ABCDEFGHJKLMNPQRSTUVWXYZ")
+    nonisolated private static let standardAlphabet = Array("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    nonisolated private static let inviteAlphabet = standardAlphabet
 
-    public static func generateBoxShortCode() -> String {
+    public nonisolated static func generateBoxShortCode() -> String {
         "B-" + random(from: safeAlphabet, length: 4)
     }
 
-    public static func generateId(_ prefix: IDPrefix) -> String {
+    public nonisolated static func generateId(_ prefix: IDPrefix) -> String {
         "\(prefix.rawValue)_" + random(from: standardAlphabet, length: 10)
     }
 
-    public static func generateInviteToken() -> String {
+    public nonisolated static func generateInviteToken() -> String {
         random(from: inviteAlphabet, length: 32)
     }
 
     /// Human-friendly short code for mobile invites. Uses the safe alphabet
     /// (no 0/O/1/I/L) so users can read and type it without confusion.
-    public static func generateInviteCode() -> String {
+    public nonisolated static func generateInviteCode() -> String {
         "PAKT-" + random(from: safeAlphabet, length: 4)
     }
 
-    private static func random(from alphabet: [Character], length: Int) -> String {
+    private nonisolated static func random(from alphabet: [Character], length: Int) -> String {
         var out = String()
         out.reserveCapacity(length)
         for _ in 0..<length {

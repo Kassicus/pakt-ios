@@ -298,6 +298,7 @@ private struct ParticipantRow: View {
     private var roleLabel: String {
         switch participant.role {
         case .owner: return "Owner"
+        case .administrator: return "Admin"
         case .privateUser: return "Collaborator"
         case .publicUser: return "Public"
         case .unknown: return "Unknown"

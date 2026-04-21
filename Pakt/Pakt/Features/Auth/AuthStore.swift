@@ -135,7 +135,7 @@ public final class AuthStore {
     }
 
     private static func hasAnyMoves(in context: ModelContext) -> Bool {
-        let descriptor = FetchDescriptor<Move>()
+        let descriptor = FetchDescriptor<Move>(predicate: #Predicate { $0.deletedAt == nil })
         let count = (try? context.fetchCount(descriptor)) ?? 0
         return count > 0
     }

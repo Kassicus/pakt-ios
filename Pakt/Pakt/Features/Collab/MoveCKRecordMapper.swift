@@ -45,6 +45,7 @@ enum MoveCKRecordMapper {
         moveRec["statusRaw"] = move.statusRaw as CKRecordValue
         moveRec["createdAt"] = move.createdAt as CKRecordValue
         moveRec["updatedAt"] = move.updatedAt as CKRecordValue
+        moveRec["deletedAt"] = move.deletedAt as CKRecordValue?
         out.append(moveRec)
 
         let moveRef = CKRecord.Reference(record: moveRec, action: .deleteSelf)
@@ -59,6 +60,7 @@ enum MoveCKRecordMapper {
             r["sortOrder"] = room.sortOrder as CKRecordValue
             r["createdAt"] = room.createdAt as CKRecordValue
             r["updatedAt"] = room.updatedAt as CKRecordValue
+            r["deletedAt"] = room.deletedAt as CKRecordValue?
             if let parent = room.parentRoom {
                 r["parentRoomId"] = parent.id as CKRecordValue
             }
@@ -76,6 +78,7 @@ enum MoveCKRecordMapper {
             r["sortOrder"] = bt.sortOrder as CKRecordValue
             r["createdAt"] = bt.createdAt as CKRecordValue
             r["updatedAt"] = bt.updatedAt as CKRecordValue
+            r["deletedAt"] = bt.deletedAt as CKRecordValue?
             out.append(r)
         }
 
@@ -97,6 +100,7 @@ enum MoveCKRecordMapper {
             r["destinationRoomId"] = item.destinationRoom?.id as CKRecordValue?
             r["createdAt"] = item.createdAt as CKRecordValue
             r["updatedAt"] = item.updatedAt as CKRecordValue
+            r["deletedAt"] = item.deletedAt as CKRecordValue?
             out.append(r)
 
             let itemRef = CKRecord.Reference(record: r, action: .deleteSelf)
@@ -110,6 +114,7 @@ enum MoveCKRecordMapper {
                 photoRec["byteSize"] = photo.byteSize as CKRecordValue?
                 photoRec["contentType"] = photo.contentType as CKRecordValue?
                 photoRec["createdAt"] = photo.createdAt as CKRecordValue
+                photoRec["deletedAt"] = photo.deletedAt as CKRecordValue?
                 if let assetURL = writeTempAsset(data: data, id: photo.id) {
                     photoRec["asset"] = CKAsset(fileURL: assetURL)
                 }
@@ -132,6 +137,7 @@ enum MoveCKRecordMapper {
             r["destinationRoomId"] = box.destinationRoom?.id as CKRecordValue?
             r["createdAt"] = box.createdAt as CKRecordValue
             r["updatedAt"] = box.updatedAt as CKRecordValue
+            r["deletedAt"] = box.deletedAt as CKRecordValue?
             out.append(r)
 
             for bi in (box.boxItems ?? []) {
@@ -215,6 +221,7 @@ enum MoveCKRecordMapper {
             move.plannedMoveDate = mr["plannedMoveDate"] as? Date
             move.statusRaw = (mr["statusRaw"] as? String) ?? move.statusRaw
             move.updatedAt = (mr["updatedAt"] as? Date) ?? Date()
+            move.deletedAt = mr["deletedAt"] as? Date
         }
         move.isShared = true
         if let shareURL { move.cloudKitShareURLString = shareURL.absoluteString }
@@ -240,6 +247,7 @@ enum MoveCKRecordMapper {
             room.label = (r["label"] as? String) ?? room.label
             room.sortOrder = (r["sortOrder"] as? Int) ?? room.sortOrder
             room.updatedAt = (r["updatedAt"] as? Date) ?? Date()
+            room.deletedAt = r["deletedAt"] as? Date
             roomsById[rid] = room
         }
 
@@ -259,6 +267,7 @@ enum MoveCKRecordMapper {
             bt.volumeCuFt = r["volumeCuFt"] as? Double
             bt.sortOrder = (r["sortOrder"] as? Int) ?? bt.sortOrder
             bt.updatedAt = (r["updatedAt"] as? Date) ?? Date()
+            bt.deletedAt = r["deletedAt"] as? Date
             boxTypesById[bid] = bt
         }
 
@@ -289,6 +298,7 @@ enum MoveCKRecordMapper {
                 item.destinationRoom = roomsById[dstId] ?? fetchRoom(id: dstId, context: context)
             }
             item.updatedAt = (r["updatedAt"] as? Date) ?? Date()
+            item.deletedAt = r["deletedAt"] as? Date
             itemsById[iid] = item
         }
 
@@ -315,6 +325,7 @@ enum MoveCKRecordMapper {
                 existing.height = r["height"] as? Int
                 existing.byteSize = r["byteSize"] as? Int
                 existing.contentType = r["contentType"] as? String
+                existing.deletedAt = r["deletedAt"] as? Date
             } else {
                 let new = ItemPhoto(
                     id: pid,
@@ -325,6 +336,7 @@ enum MoveCKRecordMapper {
                     byteSize: r["byteSize"] as? Int,
                     contentType: r["contentType"] as? String
                 )
+                new.deletedAt = r["deletedAt"] as? Date
                 context.insert(new)
             }
         }
@@ -359,6 +371,7 @@ enum MoveCKRecordMapper {
                 box.destinationRoom = roomsById[dstId] ?? fetchRoom(id: dstId, context: context)
             }
             box.updatedAt = (r["updatedAt"] as? Date) ?? Date()
+            box.deletedAt = r["deletedAt"] as? Date
             boxesById[bid] = box
         }
 
@@ -448,6 +461,7 @@ enum MoveCKRecordMapper {
         rec["statusRaw"] = move.statusRaw as CKRecordValue
         rec["createdAt"] = move.createdAt as CKRecordValue
         rec["updatedAt"] = move.updatedAt as CKRecordValue
+        rec["deletedAt"] = move.deletedAt as CKRecordValue?
         return rec
     }
 
@@ -466,6 +480,7 @@ enum MoveCKRecordMapper {
         rec["sortOrder"] = room.sortOrder as CKRecordValue
         rec["createdAt"] = room.createdAt as CKRecordValue
         rec["updatedAt"] = room.updatedAt as CKRecordValue
+        rec["deletedAt"] = room.deletedAt as CKRecordValue?
         if let parent = room.parentRoom {
             rec["parentRoomId"] = parent.id as CKRecordValue
         }
@@ -495,6 +510,7 @@ enum MoveCKRecordMapper {
         rec["destinationRoomId"] = item.destinationRoom?.id as CKRecordValue?
         rec["createdAt"] = item.createdAt as CKRecordValue
         rec["updatedAt"] = item.updatedAt as CKRecordValue
+        rec["deletedAt"] = item.deletedAt as CKRecordValue?
         return rec
     }
 
@@ -515,6 +531,7 @@ enum MoveCKRecordMapper {
         rec["byteSize"] = photo.byteSize as CKRecordValue?
         rec["contentType"] = photo.contentType as CKRecordValue?
         rec["createdAt"] = photo.createdAt as CKRecordValue
+        rec["deletedAt"] = photo.deletedAt as CKRecordValue?
         if let data = photo.data, let url = writeTempAsset(data: data, id: photo.id) {
             rec["asset"] = CKAsset(fileURL: url)
         }
@@ -541,6 +558,7 @@ enum MoveCKRecordMapper {
         rec["destinationRoomId"] = box.destinationRoom?.id as CKRecordValue?
         rec["createdAt"] = box.createdAt as CKRecordValue
         rec["updatedAt"] = box.updatedAt as CKRecordValue
+        rec["deletedAt"] = box.deletedAt as CKRecordValue?
         return rec
     }
 
@@ -560,6 +578,7 @@ enum MoveCKRecordMapper {
         rec["sortOrder"] = bt.sortOrder as CKRecordValue
         rec["createdAt"] = bt.createdAt as CKRecordValue
         rec["updatedAt"] = bt.updatedAt as CKRecordValue
+        rec["deletedAt"] = bt.deletedAt as CKRecordValue?
         return rec
     }
 

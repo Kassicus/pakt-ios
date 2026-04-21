@@ -6,6 +6,7 @@
 import CloudKit
 import SwiftData
 import SwiftUI
+import TipKit
 
 @main
 struct PaktApp: App {
@@ -24,6 +25,11 @@ struct PaktApp: App {
         let collabInstance = CloudKitCollab()
         self._collab = State(initialValue: collabInstance)
         self._syncEngine = State(initialValue: CloudKitSyncEngine(collab: collabInstance))
+
+        try? Tips.configure([
+            .displayFrequency(.immediate),
+            .datastoreLocation(.applicationDefault),
+        ])
     }
 
     var body: some Scene {
@@ -33,9 +39,11 @@ struct PaktApp: App {
                 .environment(collab)
                 .environment(inviteCodeHolder)
                 .environment(syncEngine)
+                .undoToastHost()
                 .preferredColorScheme(appearancePreference.colorScheme)
                 .task {
                     await auth.bootstrap()
+                    TrashSweeper.sweep(context: container.mainContext)
                     // Start observing SwiftData saves + install subscriptions
                     // + initial pull.
                     syncEngine.start(modelContainer: container)
