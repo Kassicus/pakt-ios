@@ -4,6 +4,7 @@ import SwiftUI
 struct AddItemSheet: View {
     let move: Move?
     let sourceRoom: Room?
+    var destinationRoom: Room? = nil
     var onCreate: ((Item) -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
@@ -26,7 +27,7 @@ struct AddItemSheet: View {
 
                 Section("Category") {
                     Picker("Category", selection: $categoryId) {
-                        ForEach(ItemCategories.all) { cat in
+                        ForEach(orderedCategories) { cat in
                             Text(cat.label).tag(cat.id)
                         }
                     }
@@ -83,6 +84,9 @@ struct AddItemSheet: View {
                 if let room = sourceRoom, let cat = defaultCategory(for: room) {
                     categoryId = cat.id
                 }
+                if let inferred = inferredDisposition {
+                    disposition = inferred
+                }
             }
         }
     }
@@ -117,13 +121,63 @@ struct AddItemSheet: View {
     }
 
     private func defaultCategory(for room: Room) -> ItemCategory? {
+        relevantCategoryIds(for: room).first.flatMap { ItemCategories.byId[$0] }
+    }
+
+    private func relevantCategoryIds(for room: Room) -> [String] {
         let label = room.label.lowercased()
-        if label.contains("kitchen")  { return ItemCategories.byId["cat_kitchen_dishes"] }
-        if label.contains("closet")   { return ItemCategories.byId["cat_clothes_folded"] }
-        if label.contains("bedroom")  { return ItemCategories.byId["cat_clothes_folded"] }
-        if label.contains("office")   { return ItemCategories.byId["cat_documents_files"] }
-        if label.contains("living")   { return ItemCategories.byId["cat_decor_small"] }
-        if label.contains("bath")     { return ItemCategories.byId["cat_towels"] }
+        if label.contains("kitchen") {
+            return ["cat_kitchen_dishes", "cat_kitchen_cookware", "cat_kitchen_small_appliance", "cat_kitchen_pantry"]
+        }
+        if label.contains("dining") {
+            return ["cat_kitchen_dishes", "cat_decor_small", "cat_furniture_medium"]
+        }
+        if label.contains("closet") {
+            return ["cat_clothes_folded", "cat_clothes_hanging", "cat_shoes"]
+        }
+        if label.contains("bedroom") {
+            return ["cat_clothes_folded", "cat_clothes_hanging", "cat_shoes", "cat_linens_bedding", "cat_decor_small", "cat_electronics_small", "cat_books"]
+        }
+        if label.contains("office") {
+            return ["cat_documents_files", "cat_books", "cat_electronics_small", "cat_electronics_monitor", "cat_tools"]
+        }
+        if label.contains("living") || label.contains("family") || label.contains("den") {
+            return ["cat_decor_small", "cat_decor_art_framed", "cat_electronics_small", "cat_electronics_monitor", "cat_books", "cat_furniture_small", "cat_furniture_medium"]
+        }
+        if label.contains("bath") {
+            return ["cat_towels", "cat_linens_bedding"]
+        }
+        if label.contains("garage") || label.contains("shed") || label.contains("basement") {
+            return ["cat_tools", "cat_furniture_small", "cat_furniture_medium"]
+        }
+        if label.contains("laundry") {
+            return ["cat_linens_bedding", "cat_towels", "cat_clothes_folded"]
+        }
+        return []
+    }
+
+    /// Categories that are typical for the source room, followed by everything else.
+    private var orderedCategories: [ItemCategory] {
+        guard let room = sourceRoom else { return ItemCategories.all }
+        let ids = relevantCategoryIds(for: room)
+        guard !ids.isEmpty else { return ItemCategories.all }
+        let set = Set(ids)
+        let relevant = ids.compactMap { ItemCategories.byId[$0] }
+        let other = ItemCategories.all.filter { !set.contains($0.id) }
+        return relevant + other
+    }
+
+    /// When packing into a box, items are being kept — either moved with the user or dropped in storage.
+    /// Surface that as the default so users only flip it for edge cases (donate/trash/sold).
+    private var inferredDisposition: Disposition? {
+        let destLabel = destinationRoom?.label.lowercased()
+        let sourceLabel = sourceRoom?.label.lowercased()
+        if destLabel?.contains("storage") == true || sourceLabel?.contains("storage") == true {
+            return .storage
+        }
+        if destinationRoom != nil {
+            return .moving
+        }
         return nil
     }
 

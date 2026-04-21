@@ -12,9 +12,28 @@ struct BoxDetailView: View {
     @State private var showingNewItem = false
     @State private var deleted = false
     @State private var pendingRemoval: IndexSet?
+    @State private var showLabelSavedToast = false
     private let swipeTip = SwipeToRemoveBoxItemTip()
 
+    private var labelAtTop: Bool { box.status >= .sealed }
+
     var body: some View {
+        ZStack(alignment: .bottom) {
+            form
+            if showLabelSavedToast {
+                Text("Saved label to Photos")
+                    .font(.pakt(.small))
+                    .padding(.horizontal, PaktSpace.s4)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(Color.paktCard))
+                    .overlay(Capsule().strokeBorder(Color.paktBorder, lineWidth: 1))
+                    .padding(.bottom, PaktSpace.s6)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    private var form: some View {
         Form {
             Section("Status") {
                 HStack {
@@ -49,6 +68,8 @@ struct BoxDetailView: View {
                     }
                 }
             }
+
+            if labelAtTop { labelSection }
 
             Section("Contents") {
                 let liveItems = (box.boxItems ?? []).filter { $0.item?.deletedAt == nil }
@@ -145,6 +166,8 @@ struct BoxDetailView: View {
                 .lineLimit(3...6)
             }
 
+            if !labelAtTop { labelSection }
+
             Section {
                 Button(role: .destructive) {
                     let removed = box
@@ -174,6 +197,7 @@ struct BoxDetailView: View {
             AddItemSheet(
                 move: box.move,
                 sourceRoom: box.sourceRoom,
+                destinationRoom: box.destinationRoom,
                 onCreate: attach
             )
             .presentationDetents([.large])
@@ -195,6 +219,38 @@ struct BoxDetailView: View {
             Button("Cancel", role: .cancel) { pendingRemoval = nil }
         } message: {
             Text("The item stays in your inventory — only its placement in this box is removed.")
+        }
+    }
+
+    @ViewBuilder private var labelSection: some View {
+        Section("Label") {
+            if let img = LabelRenderer.image(for: box) {
+                Image(uiImage: img)
+                    .resizable()
+                    .aspectRatio(472.0 / 354.0, contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: PaktRadius.md))
+                    .listRowInsets(EdgeInsets(top: PaktSpace.s2, leading: PaktSpace.s3, bottom: PaktSpace.s2, trailing: PaktSpace.s3))
+            } else {
+                Text("Label preview unavailable")
+                    .font(.pakt(.small))
+                    .foregroundStyle(Color.paktMutedForeground)
+            }
+            Button {
+                saveLabelToPhotos()
+            } label: {
+                Label("Save label to Photos", systemImage: "arrow.down.to.line")
+            }
+        }
+    }
+
+    private func saveLabelToPhotos() {
+        guard let image = LabelRenderer.image(for: box) else { return }
+        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+        withAnimation { showLabelSavedToast = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            withAnimation { showLabelSavedToast = false }
         }
     }
 

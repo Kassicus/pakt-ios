@@ -60,6 +60,7 @@ struct BoxItemPickerSheet: View {
                 AddItemSheet(
                     move: box.move,
                     sourceRoom: box.sourceRoom,
+                    destinationRoom: box.destinationRoom,
                     onCreate: attachCreated
                 )
                 .presentationDetents([.large])
