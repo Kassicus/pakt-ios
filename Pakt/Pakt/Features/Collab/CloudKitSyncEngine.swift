@@ -81,6 +81,97 @@ public final class CloudKitSyncEngine {
         Task { [weak self] in
             await self?.setupSubscriptions()
             await self?.pullAll()
+            await self?.healOwnerSharesIfNeeded()
+        }
+    }
+
+    /// Manual trigger for the same delete-and-re-push heal `healOwnerSharesIfNeeded`
+    /// performs, ignoring the UserDefaults gate. Surfaced in Settings so a
+    /// user whose shared move still isn't syncing can force a rebuild of
+    /// every owner-side share's cascade.
+    public func forceResyncSharedMoves() async throws {
+        guard let context else { return }
+        state = .syncing
+        defer { state = .idle }
+
+        let moves = (try? context.fetch(FetchDescriptor<Move>(
+            predicate: #Predicate { $0.isShared == true }
+        ))) ?? []
+
+        var firstError: Error?
+        for move in moves {
+            let role = await collab.currentRole(for: move)
+            guard role == .owner else { continue }
+            let db = collab.database(for: role)
+            let records = MoveCKRecordMapper.records(for: move)
+            let rootID = CKRecord.ID(
+                recordName: move.id,
+                zoneID: MoveCKRecordMapper.zoneID(for: move.id)
+            )
+            let childRecordIDs = records
+                .filter { $0.recordID != rootID }
+                .map(\.recordID)
+
+            do {
+                if !childRecordIDs.isEmpty {
+                    try await collab.deleteRecords(childRecordIDs, from: db)
+                }
+                try await collab.pushRecords(records, to: db)
+            } catch {
+                if firstError == nil { firstError = error }
+            }
+        }
+
+        if let firstError { throw firstError }
+    }
+
+    /// One-time heal for shares created before child records carried a
+    /// `parent` reference back to the Move root. Without that reference,
+    /// CloudKit doesn't propagate child records (rooms, items, boxes, photos,
+    /// etc.) to share participants even though they live in the shared zone.
+    ///
+    /// CloudKit treats `CKRecord.parent` as a system field that is only
+    /// honored on a record's first save — re-saving an existing record with
+    /// `.allKeys` rewrites user fields but leaves the parent reference empty.
+    /// To make the parent reference actually take effect, delete every
+    /// non-root record first, then push the full cascade as a fresh save.
+    /// The CKShare itself stays intact (its root is the Move), so the share
+    /// URL and existing participant accept state survive the heal.
+    private func healOwnerSharesIfNeeded() async {
+        let key = "paktCloudShareParentRefHealV2"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        guard let context else { return }
+
+        let moves = (try? context.fetch(FetchDescriptor<Move>(
+            predicate: #Predicate { $0.isShared == true }
+        ))) ?? []
+
+        var anyFailed = false
+        for move in moves {
+            let role = await collab.currentRole(for: move)
+            guard role == .owner else { continue }
+            let db = collab.database(for: role)
+            let records = MoveCKRecordMapper.records(for: move)
+            let rootID = CKRecord.ID(
+                recordName: move.id,
+                zoneID: MoveCKRecordMapper.zoneID(for: move.id)
+            )
+            let childRecordIDs = records
+                .filter { $0.recordID != rootID }
+                .map(\.recordID)
+
+            do {
+                if !childRecordIDs.isEmpty {
+                    try await collab.deleteRecords(childRecordIDs, from: db)
+                }
+                try await collab.pushRecords(records, to: db)
+            } catch {
+                anyFailed = true
+            }
+        }
+
+        if !anyFailed {
+            UserDefaults.standard.set(true, forKey: key)
         }
     }
 

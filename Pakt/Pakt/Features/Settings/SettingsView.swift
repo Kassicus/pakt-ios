@@ -4,6 +4,7 @@ import TipKit
 
 struct SettingsView: View {
     @Environment(AuthStore.self) private var auth
+    @Environment(CloudKitSyncEngine.self) private var syncEngine
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
 
@@ -14,6 +15,21 @@ struct SettingsView: View {
 
     @State private var confirmSignOut = false
     @State private var showingSignInPromo = false
+    @State private var isResyncing = false
+    @State private var confirmResync = false
+    @State private var resyncResult: ResyncResult?
+
+    private enum ResyncResult: Identifiable {
+        case success
+        case failure(String)
+
+        var id: String {
+            switch self {
+            case .success: return "ok"
+            case .failure(let m): return "err:\(m)"
+            }
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -51,6 +67,51 @@ struct SettingsView: View {
             .sheet(isPresented: $showingSignInPromo) {
                 SignInPromoView(context: .settings)
                     .environment(auth)
+            }
+            .confirmationDialog(
+                "Force re-sync shared moves?",
+                isPresented: $confirmResync,
+                titleVisibility: .visible
+            ) {
+                Button("Re-sync now") { runForceResync() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Rebuilds every shared move's data on iCloud. Collaborators may see data briefly disappear and reappear. Your local data is untouched.")
+            }
+            .alert(item: $resyncResult) { result in
+                switch result {
+                case .success:
+                    return Alert(
+                        title: Text("Re-sync complete"),
+                        message: Text("Ask collaborators to open the app to pull the latest data."),
+                        dismissButton: .default(Text("OK"))
+                    )
+                case .failure(let message):
+                    return Alert(
+                        title: Text("Re-sync failed"),
+                        message: Text(message),
+                        dismissButton: .default(Text("OK"))
+                    )
+                }
+            }
+        }
+    }
+
+    private func runForceResync() {
+        guard !isResyncing else { return }
+        isResyncing = true
+        Task {
+            do {
+                try await syncEngine.forceResyncSharedMoves()
+                await MainActor.run {
+                    isResyncing = false
+                    resyncResult = .success
+                }
+            } catch {
+                await MainActor.run {
+                    isResyncing = false
+                    resyncResult = .failure(error.localizedDescription)
+                }
             }
         }
     }
@@ -165,36 +226,74 @@ struct SettingsView: View {
 
     private var dataSurface: some View {
         PaktSurface(title: "Data", icon: "activity", accent: .paktStorage) {
-            HStack(spacing: PaktSpace.s3) {
-                Image(systemName: "icloud.fill")
-                    .font(.system(size: 22))
-                    .foregroundStyle(isSignedIn ? Color.paktPrimary : Color.paktMutedForeground)
-                    .frame(width: 40, height: 40)
-                    .background(
-                        Circle()
-                            .fill((isSignedIn ? Color.paktPrimary : Color.paktMutedForeground).opacity(0.14))
-                    )
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("iCloud sync")
-                        .font(.pakt(.bodyMedium))
-                        .foregroundStyle(Color.paktForeground)
-                    Text(isSignedIn
-                         ? "Changes sync automatically across your devices."
-                         : "Sign in with Apple to sync your moves across devices.")
+            VStack(alignment: .leading, spacing: PaktSpace.s3) {
+                HStack(spacing: PaktSpace.s3) {
+                    Image(systemName: "icloud.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(isSignedIn ? Color.paktPrimary : Color.paktMutedForeground)
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill((isSignedIn ? Color.paktPrimary : Color.paktMutedForeground).opacity(0.14))
+                        )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("iCloud sync")
+                            .font(.pakt(.bodyMedium))
+                            .foregroundStyle(Color.paktForeground)
+                        Text(isSignedIn
+                             ? "Changes sync automatically across your devices."
+                             : "Sign in with Apple to sync your moves across devices.")
+                            .font(.pakt(.small))
+                            .foregroundStyle(Color.paktMutedForeground)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Text(isSignedIn ? "ON" : "OFF")
                         .font(.pakt(.small))
-                        .foregroundStyle(Color.paktMutedForeground)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .tracking(1.0)
+                        .foregroundStyle(isSignedIn ? Color.paktPrimary : Color.paktMutedForeground)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule().fill((isSignedIn ? Color.paktPrimary : Color.paktMutedForeground).opacity(0.14))
+                        )
                 }
-                Spacer()
-                Text(isSignedIn ? "ON" : "OFF")
-                    .font(.pakt(.small))
-                    .tracking(1.0)
-                    .foregroundStyle(isSignedIn ? Color.paktPrimary : Color.paktMutedForeground)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule().fill((isSignedIn ? Color.paktPrimary : Color.paktMutedForeground).opacity(0.14))
-                    )
+
+                if isSignedIn {
+                    Rectangle().fill(Color.paktBorder.opacity(0.6)).frame(height: 1)
+                    Button { confirmResync = true } label: {
+                        HStack(spacing: PaktSpace.s3) {
+                            ZStack {
+                                Circle().fill(Color.paktStorage.opacity(0.14))
+                                if isResyncing {
+                                    ProgressView()
+                                        .tint(Color.paktStorage)
+                                } else {
+                                    Image(systemName: "arrow.triangle.2.circlepath")
+                                        .font(.system(size: 18, weight: .medium))
+                                        .foregroundStyle(Color.paktStorage)
+                                }
+                            }
+                            .frame(width: 40, height: 40)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Force re-sync shared moves")
+                                    .font(.pakt(.bodyMedium))
+                                    .foregroundStyle(Color.paktForeground)
+                                Text("Rebuilds the shared data on iCloud so invited collaborators can see every room, item, and box.")
+                                    .font(.pakt(.small))
+                                    .foregroundStyle(Color.paktMutedForeground)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer()
+                            Image(paktIcon: "chevron-right")
+                                .foregroundStyle(Color.paktMutedForeground)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isResyncing)
+                    .opacity(isResyncing ? 0.6 : 1)
+                }
             }
         }
     }

@@ -49,11 +49,18 @@ enum MoveCKRecordMapper {
         out.append(moveRec)
 
         let moveRef = CKRecord.Reference(record: moveRec, action: .deleteSelf)
+        // CloudKit shares propagate to participants via the `parent` reference
+        // chain from the share's root record. Setting `moveRef` as a field is
+        // not enough — without `record.parent` pointing at the Move root,
+        // children stay invisible to participants even though they exist in
+        // the shared zone.
+        let moveParentRef = CKRecord.Reference(record: moveRec, action: .none)
 
         // Rooms.
         for room in (move.rooms ?? []) {
             let r = CKRecord(recordType: RecordType.room,
                              recordID: CKRecord.ID(recordName: room.id, zoneID: zone))
+            r.parent = moveParentRef
             r["moveRef"] = moveRef
             r["kindRaw"] = room.kindRaw as CKRecordValue
             r["label"] = room.label as CKRecordValue
@@ -71,6 +78,7 @@ enum MoveCKRecordMapper {
         for bt in (move.boxTypes ?? []) {
             let r = CKRecord(recordType: RecordType.boxType,
                              recordID: CKRecord.ID(recordName: bt.id, zoneID: zone))
+            r.parent = moveParentRef
             r["moveRef"] = moveRef
             r["key"] = bt.key as CKRecordValue?
             r["label"] = bt.label as CKRecordValue
@@ -86,6 +94,7 @@ enum MoveCKRecordMapper {
         for item in (move.items ?? []) {
             let r = CKRecord(recordType: RecordType.item,
                              recordID: CKRecord.ID(recordName: item.id, zoneID: zone))
+            r.parent = moveParentRef
             r["moveRef"] = moveRef
             r["name"] = item.name as CKRecordValue
             r["categoryId"] = item.categoryId as CKRecordValue?
@@ -104,10 +113,12 @@ enum MoveCKRecordMapper {
             out.append(r)
 
             let itemRef = CKRecord.Reference(record: r, action: .deleteSelf)
+            let itemParentRef = CKRecord.Reference(record: r, action: .none)
             for photo in (item.photos ?? []) {
                 guard let data = photo.data else { continue }
                 let photoRec = CKRecord(recordType: RecordType.itemPhoto,
                                         recordID: CKRecord.ID(recordName: photo.id, zoneID: zone))
+                photoRec.parent = itemParentRef
                 photoRec["itemRef"] = itemRef
                 photoRec["width"] = photo.width as CKRecordValue?
                 photoRec["height"] = photo.height as CKRecordValue?
@@ -126,6 +137,7 @@ enum MoveCKRecordMapper {
         for box in (move.boxes ?? []) {
             let r = CKRecord(recordType: RecordType.box,
                              recordID: CKRecord.ID(recordName: box.id, zoneID: zone))
+            r.parent = moveParentRef
             r["moveRef"] = moveRef
             r["shortCode"] = box.shortCode as CKRecordValue
             r["statusRaw"] = box.statusRaw as CKRecordValue
@@ -143,6 +155,7 @@ enum MoveCKRecordMapper {
             for bi in (box.boxItems ?? []) {
                 let biRec = CKRecord(recordType: RecordType.boxItem,
                                      recordID: CKRecord.ID(recordName: bi.id, zoneID: zone))
+                biRec.parent = moveParentRef
                 biRec["moveRef"] = moveRef
                 biRec["boxId"] = box.id as CKRecordValue
                 biRec["itemId"] = bi.item?.id as CKRecordValue?
@@ -156,6 +169,7 @@ enum MoveCKRecordMapper {
         for chk in (move.checklist ?? []) {
             let r = CKRecord(recordType: RecordType.checklist,
                              recordID: CKRecord.ID(recordName: chk.id, zoneID: zone))
+            r.parent = moveParentRef
             r["moveRef"] = moveRef
             r["text"] = chk.text as CKRecordValue
             r["categoryRaw"] = chk.categoryRaw as CKRecordValue
@@ -471,10 +485,9 @@ enum MoveCKRecordMapper {
             recordType: RecordType.room,
             recordID: CKRecord.ID(recordName: room.id, zoneID: zone)
         )
-        rec["moveRef"] = CKRecord.Reference(
-            recordID: CKRecord.ID(recordName: moveId, zoneID: zone),
-            action: .deleteSelf
-        )
+        let moveRecordID = CKRecord.ID(recordName: moveId, zoneID: zone)
+        rec.parent = CKRecord.Reference(recordID: moveRecordID, action: .none)
+        rec["moveRef"] = CKRecord.Reference(recordID: moveRecordID, action: .deleteSelf)
         rec["kindRaw"] = room.kindRaw as CKRecordValue
         rec["label"] = room.label as CKRecordValue
         rec["sortOrder"] = room.sortOrder as CKRecordValue
@@ -493,10 +506,9 @@ enum MoveCKRecordMapper {
             recordType: RecordType.item,
             recordID: CKRecord.ID(recordName: item.id, zoneID: zone)
         )
-        rec["moveRef"] = CKRecord.Reference(
-            recordID: CKRecord.ID(recordName: moveId, zoneID: zone),
-            action: .deleteSelf
-        )
+        let moveRecordID = CKRecord.ID(recordName: moveId, zoneID: zone)
+        rec.parent = CKRecord.Reference(recordID: moveRecordID, action: .none)
+        rec["moveRef"] = CKRecord.Reference(recordID: moveRecordID, action: .deleteSelf)
         rec["name"] = item.name as CKRecordValue
         rec["categoryId"] = item.categoryId as CKRecordValue?
         rec["dispositionRaw"] = item.dispositionRaw as CKRecordValue
@@ -521,10 +533,9 @@ enum MoveCKRecordMapper {
             recordID: CKRecord.ID(recordName: photo.id, zoneID: zone)
         )
         if let parentItem = photo.item {
-            rec["itemRef"] = CKRecord.Reference(
-                recordID: CKRecord.ID(recordName: parentItem.id, zoneID: zone),
-                action: .deleteSelf
-            )
+            let itemRecordID = CKRecord.ID(recordName: parentItem.id, zoneID: zone)
+            rec.parent = CKRecord.Reference(recordID: itemRecordID, action: .none)
+            rec["itemRef"] = CKRecord.Reference(recordID: itemRecordID, action: .deleteSelf)
         }
         rec["width"] = photo.width as CKRecordValue?
         rec["height"] = photo.height as CKRecordValue?
@@ -544,10 +555,9 @@ enum MoveCKRecordMapper {
             recordType: RecordType.box,
             recordID: CKRecord.ID(recordName: box.id, zoneID: zone)
         )
-        rec["moveRef"] = CKRecord.Reference(
-            recordID: CKRecord.ID(recordName: moveId, zoneID: zone),
-            action: .deleteSelf
-        )
+        let moveRecordID = CKRecord.ID(recordName: moveId, zoneID: zone)
+        rec.parent = CKRecord.Reference(recordID: moveRecordID, action: .none)
+        rec["moveRef"] = CKRecord.Reference(recordID: moveRecordID, action: .deleteSelf)
         rec["shortCode"] = box.shortCode as CKRecordValue
         rec["statusRaw"] = box.statusRaw as CKRecordValue
         rec["tagsRaw"] = box.tagsRaw as CKRecordValue
@@ -568,10 +578,9 @@ enum MoveCKRecordMapper {
             recordType: RecordType.boxType,
             recordID: CKRecord.ID(recordName: bt.id, zoneID: zone)
         )
-        rec["moveRef"] = CKRecord.Reference(
-            recordID: CKRecord.ID(recordName: moveId, zoneID: zone),
-            action: .deleteSelf
-        )
+        let moveRecordID = CKRecord.ID(recordName: moveId, zoneID: zone)
+        rec.parent = CKRecord.Reference(recordID: moveRecordID, action: .none)
+        rec["moveRef"] = CKRecord.Reference(recordID: moveRecordID, action: .deleteSelf)
         rec["key"] = bt.key as CKRecordValue?
         rec["label"] = bt.label as CKRecordValue
         rec["volumeCuFt"] = bt.volumeCuFt as CKRecordValue?
@@ -588,10 +597,9 @@ enum MoveCKRecordMapper {
             recordType: RecordType.boxItem,
             recordID: CKRecord.ID(recordName: bi.id, zoneID: zone)
         )
-        rec["moveRef"] = CKRecord.Reference(
-            recordID: CKRecord.ID(recordName: moveId, zoneID: zone),
-            action: .deleteSelf
-        )
+        let moveRecordID = CKRecord.ID(recordName: moveId, zoneID: zone)
+        rec.parent = CKRecord.Reference(recordID: moveRecordID, action: .none)
+        rec["moveRef"] = CKRecord.Reference(recordID: moveRecordID, action: .deleteSelf)
         rec["boxId"] = bi.box?.id as CKRecordValue?
         rec["itemId"] = bi.item?.id as CKRecordValue?
         rec["quantity"] = bi.quantity as CKRecordValue
@@ -605,10 +613,9 @@ enum MoveCKRecordMapper {
             recordType: RecordType.checklist,
             recordID: CKRecord.ID(recordName: chk.id, zoneID: zone)
         )
-        rec["moveRef"] = CKRecord.Reference(
-            recordID: CKRecord.ID(recordName: moveId, zoneID: zone),
-            action: .deleteSelf
-        )
+        let moveRecordID = CKRecord.ID(recordName: moveId, zoneID: zone)
+        rec.parent = CKRecord.Reference(recordID: moveRecordID, action: .none)
+        rec["moveRef"] = CKRecord.Reference(recordID: moveRecordID, action: .deleteSelf)
         rec["text"] = chk.text as CKRecordValue
         rec["categoryRaw"] = chk.categoryRaw as CKRecordValue
         rec["doneAt"] = chk.doneAt as CKRecordValue?
